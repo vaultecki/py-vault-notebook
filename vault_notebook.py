@@ -9,7 +9,7 @@ from PyQt6.QtCore import pyqtSlot
 from PyQt6.QtWebEngineCore import QWebEnginePage
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 import logging
-import vault_helper
+# import vault_helper
 
 
 class WikiPage(QWebEnginePage):

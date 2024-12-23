@@ -216,19 +216,25 @@ class Notebook(QtWidgets.QWidget):
         self.web_page.load(QUrl("file://{}".format(html_file_name)))
 
     def on_click_edit_page(self):
+        logger.info("edit clicked")
         project_name = self.project_drop_down.currentText()
         project = self.data.get("projects").get(project_name)
         file_name = self.web_page.url().fileName()
+        if file_name.endswith(".html"):
+            file_name = file_name[:-5]
         path_project = self.data.get("projects", {}).get(self.project_drop_down.currentText(), {}).get("path", "")
-        path_url = self.web_page.url().path()
-        if path_url.startswith(path_project):
-            logger.info("starts with")
-            if path_url > path_project:
+        path_url_str = str(os.path.split(self.web_page.url().path())[0])
+        if path_url_str.startswith(path_project):
+            logger.info("url starts with {}".format(path_project))
+            if path_url_str > path_project:
                 logger.info("recreate relative project path")
-                suffix = path_url[len(path_project):]
-                file_name = "{}/{}".format(suffix, file_name)
+                cut_length = len(path_project) + 1
+                if path_project.endswith("/"):
+                    cut_length = cut_length - 1
+                prefix = path_url_str[cut_length:]
+                file_name = "{}/{}".format(prefix, file_name)
             if file_name.split(".")[-1] in ["adoc", "asciidoc"]:
-                logger.info("load page")
+                logger.info("load page {}".format(file_name))
                 # edit_page_window = EditPage(project_data=project, project_name=project_name, file_name=file_name)
                 # edit_page_window.show()
                 # self.edit_page_window.window_closed_sygnal.connect(self.update_current_page)
@@ -249,8 +255,8 @@ class Notebook(QtWidgets.QWidget):
                 cut_length = len(path_project)+1
                 if path_project.endswith("/"):
                     cut_length = cut_length -1
-                suffix = path_url_str[cut_length:]
-                file_name = "{}/{}".format(suffix, file_name)
+                prefix = path_url_str[cut_length:]
+                file_name = "{}/{}".format(prefix, file_name)
             if file_name.split(".")[-1] in ["adoc", "asciidoc"]:
                 logger.info("load page")
                 self.load_page(file_name)

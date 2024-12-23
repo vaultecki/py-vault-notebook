@@ -7,8 +7,8 @@ import time
 import asciidoc
 import PySignal
 
-from PyQt6 import QtWidgets, QtCore, QtGui
-from PyQt6.QtCore import pyqtSlot
+from PyQt6 import QtWidgets, QtGui
+from PyQt6.QtCore import pyqtSlot, QUrl
 from PyQt6.QtWebEngineCore import QWebEnginePage
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 import logging
@@ -24,13 +24,20 @@ class NotebookPage(QWebEnginePage):
     nav_link_clicked_signal = PySignal.Signal()
 
     def acceptNavigationRequest(self, url, _type, isMainFrame):
-        logger.info("accept navigation")
+        logger.info("accept navigation - type {}".format(_type))
+        #logger.info("accept navigation - url {}".format(url))
+        #logger.info("accept navigation - main {}".format(isMainFrame))
 
         if _type == QWebEnginePage.NavigationType.NavigationTypeLinkClicked:
             logger.info("url clicked: {}".format(url))
-            self.nav_link_clicked_signal.emit(url)
+            if not url.isValid() or url.isEmpty():
+                return False
+            if url.isLocalFile():
+                self.nav_link_clicked_signal.emit(url)
+                return False
             # Keep reference to external window, so it isn't cleared up.
             # self.external_windows.append(w)
+            QtGui.QDesktopServices.openUrl(url)
             return False
         return super().acceptNavigationRequest(url, _type, isMainFrame)
 
@@ -44,13 +51,13 @@ class Notebook(QtWidgets.QWidget):
         # init up elements
         self.project_drop_down = QtWidgets.QComboBox()
         self.search_box = QtWidgets.QComboBox()
+        self.breadcrumb_label = QtWidgets.QLabel()
         # config
         self.read_config()
         # web
         self.web_engine_view = QWebEngineView()
         self.web_page = NotebookPage(self)
-        # self.web_page = QWebEnginePage()
-        # self.web_page.nav_link_clicked_signal.connect(self.on_click_nav_link)
+        self.web_page.nav_link_clicked_signal.connect(self.on_click_nav_link)
         self.web_engine_view.setPage(self.web_page)
         # init
         self.init_ui()
@@ -59,7 +66,7 @@ class Notebook(QtWidgets.QWidget):
         if not self.data.get("last_project"):
             self.data.update({"last_project": list(self.data.get("projects").keys())[0]})
         project_name = self.data.get("last_project")
-        self.load_page(project_name, self.data.get("projects", {}).get(project_name, {}).get("last_ascii_file", None))
+        self.load_page(self.data.get("projects", {}).get(project_name, {}).get("last_ascii_file", None))
 
     def read_config(self):
         home_dir = os.path.expanduser("~")
@@ -109,7 +116,7 @@ class Notebook(QtWidgets.QWidget):
             self.data.update({"projects": projects})
             self.data.update({"last_project": project_name})
             self.project_drop_down.addItem(project_name)
-            self.load_page(project_name, self.data.get("index_file", "index.asciidoc"))
+            self.load_page(self.data.get("index_file", "index.asciidoc"))
 
     def init_ui(self):
         vbox = QtWidgets.QVBoxLayout(self)
@@ -158,8 +165,12 @@ class Notebook(QtWidgets.QWidget):
         hbox2.addWidget(update_current_page_btn)
         # update_current_page_btn.clicked.connect(self.update_current_page)
         # settings
+        self.breadcrumb_label = QtWidgets.QLabel()
+        breadcrumb_widget = QtWidgets.QHBoxLayout()
+        breadcrumb_widget.addWidget(self.breadcrumb_label)
         vbox.addLayout(hbox)
         vbox.addLayout(hbox2)
+        #vbox.addLayout(breadcrumb_widget)
         vbox.addWidget(self.web_engine_view)
         self.setLayout(vbox)
         self.setGeometry(300, 300, 350, 250)
@@ -168,26 +179,65 @@ class Notebook(QtWidgets.QWidget):
         self.show()
         logger.info("Main window widgets created")
 
-    def load_page(self, project_name, file_name=None):
+    def load_page(self, file_name=None):
         if not file_name:
             file_name = self.data.get("index_file", "index.asciidoc")
+        project_name = self.project_drop_down.currentText()
         logger.info("Loading page {} from project {}".format(project_name, file_name))
         project = self.data.get("projects").get(project_name)
         ascii_file_name = os.path.join(project.get("path"), file_name)
         logger.info("Loading page {}".format(ascii_file_name))
-        with open(ascii_file_name, "r") as ascii_file:
-            text_in = ascii_file.read()
+        try:
+            with open(ascii_file_name, "r") as ascii_file:
+                text_in = ascii_file.read()
+        except FileNotFoundError:
+            text_in = "== empty page\n"
+            with open(ascii_file_name, "w") as ascii_file:
+                ascii_file.write(text_in)
         html_text = text_2_html(text_in)
-        self.web_page.setHtml(html_text)
+        html_file_name = "{}.html".format(ascii_file_name)
+        with open(html_file_name, "w") as html_file:
+            html_file.write(html_text)
+        self.web_page.load(QUrl("file://{}".format(html_file_name)))
 
     def on_click_edit_page(self):
         project_name = self.project_drop_down.currentText()
         project = self.data.get("projects").get(project_name)
         file_name = "index.asciidoc"
-        edit_page_window = EditPage(project_data=project, project_name=project_name, file_name=file_name)
-        # edit_page_window.show()
-        # self.edit_page_window.window_closed_sygnal.connect(self.update_current_page)
-        # self.edit_page_window.show()
+        path_project = self.data.get("projects", {}).get(self.project_drop_down.currentText(), {}).get("path", "")
+        path_url_str = str(self.web_page.url().path())
+        if path_url_str.startswith(path_project):
+            logger.info("starts with")
+            if path_url_str > path_project:
+                logger.info("recreate relative project path")
+                suffix = path_url_str[len(path_project):]
+                file_name = "{}/{}".format(suffix, file_name)
+            if file_name.split(".")[-1] in ["adoc", "asciidoc"]:
+                logger.info("load page")
+                # edit_page_window = EditPage(project_data=project, project_name=project_name, file_name=file_name)
+                # edit_page_window.show()
+                # self.edit_page_window.window_closed_sygnal.connect(self.update_current_page)
+                # self.edit_page_window.show()
+        else:
+            logger.error("path {} <-mismatch-> url {}".format(path_project, path_url_str))
+
+    def on_click_nav_link(self, url):
+        logger.info("open new local url {}".format(url))
+        file_name = url.fileName()
+        path = url.path()
+        path_project = self.data.get("projects", {}).get(self.project_drop_down.currentText(), {}).get("path", "")
+        path_url_str = str(os.path.split(path)[0])
+        if path_url_str.startswith(path_project):
+            logger.info("starts with")
+            if path_url_str > path_project:
+                logger.info("recreate relative project path")
+                suffix = path_url_str[len(path_project):]
+                file_name = "{}/{}".format(suffix, file_name)
+            if file_name.split(".")[-1] in ["adoc", "asciidoc"]:
+                logger.info("load page")
+                self.load_page(file_name)
+        else:
+            logger.error("path {} <-mismatch-> url {}".format(path_project, path_url_str))
 
     @pyqtSlot(QtGui.QCloseEvent)
     def closeEvent(self, event):

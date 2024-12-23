@@ -184,7 +184,7 @@ class Notebook(QtWidgets.QWidget):
         if not file_name:
             file_name = self.data.get("index_file", "index.asciidoc")
         project_name = self.project_drop_down.currentText()
-        logger.info("Loading page {} from project {}".format(project_name, file_name))
+        logger.info("Loading page {} from project {}".format(file_name, project_name))
         project = self.data.get("projects").get(project_name)
         ascii_file_name = os.path.join(project.get("path"), file_name)
         logger.info("Loading page {}".format(ascii_file_name))
@@ -192,9 +192,14 @@ class Notebook(QtWidgets.QWidget):
             with open(ascii_file_name, "r") as ascii_file:
                 text_in = ascii_file.read()
         except FileNotFoundError:
+            logger.warning("file {} not found".format(ascii_file_name))
             text_in = "== empty page\n"
-            with open(ascii_file_name, "w") as ascii_file:
-                ascii_file.write(text_in)
+            try:
+                with open(ascii_file_name, "w") as ascii_file:
+                    ascii_file.write(text_in)
+            except FileNotFoundError:
+                logger.error("problem writing new file {}".format(ascii_file_name))
+                return
         html_text = text_2_html(text_in)
         html_file_name = "{}.html".format(ascii_file_name)
         with open(html_file_name, "w") as html_file:
@@ -232,7 +237,10 @@ class Notebook(QtWidgets.QWidget):
             logger.info("starts with")
             if path_url_str > path_project:
                 logger.info("recreate relative project path")
-                suffix = path_url_str[len(path_project):]
+                cut_length = len(path_project)+1
+                if path_project.endswith("/"):
+                    cut_length = cut_length -1
+                suffix = path_url_str[cut_length:]
                 file_name = "{}/{}".format(suffix, file_name)
             if file_name.split(".")[-1] in ["adoc", "asciidoc"]:
                 logger.info("load page")

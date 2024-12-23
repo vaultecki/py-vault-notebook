@@ -153,17 +153,17 @@ class Notebook(QtWidgets.QWidget):
         hbox2.addWidget(new_project_button)
         # new_project_button.clicked.connect(self.on_click_new_project)
         # export btn
-        export_button = QtWidgets.QPushButton('Export', self)
+        export_button = QtWidgets.QPushButton("Export", self)
         hbox2.addWidget(export_button)
         # export_button.clicked.connect(self.on_export_pdf)
         # edit btn
-        edit_page_button = QtWidgets.QPushButton('Edit Page', self)
+        edit_page_button = QtWidgets.QPushButton("Edit Page", self)
         hbox2.addWidget(edit_page_button)
         edit_page_button.clicked.connect(self.on_click_edit_page)
         # update page
-        update_current_page_btn = QtWidgets.QPushButton("🔄")
-        hbox2.addWidget(update_current_page_btn)
-        # update_current_page_btn.clicked.connect(self.update_current_page)
+        page_back_btn = QtWidgets.QPushButton("Back", self)
+        hbox2.addWidget(page_back_btn)
+        page_back_btn.clicked.connect(self.on_click_back_btn)
         # settings
         self.breadcrumb_label = QtWidgets.QLabel()
         breadcrumb_widget = QtWidgets.QHBoxLayout()
@@ -238,6 +238,10 @@ class Notebook(QtWidgets.QWidget):
                 self.load_page(file_name)
         else:
             logger.error("path {} <-mismatch-> url {}".format(path_project, path_url_str))
+
+    def on_click_back_btn(self):
+        logger.info("hit back btn")
+        self.web_page.triggerAction(QWebEnginePage.WebAction.Back)
 
     @pyqtSlot(QtGui.QCloseEvent)
     def closeEvent(self, event):

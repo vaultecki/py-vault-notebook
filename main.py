@@ -22,23 +22,21 @@ logger = logging.getLogger(__name__)
 
 class NotebookPage(QWebEnginePage):
     """ Custom WebEnginePage to customize how we handle link navigation """
-    nav_link_clicked_signal = PySignal.Signal()
+    nav_link_clicked_internal_signal = PySignal.Signal()
+    nav_link_clicked_external_signal = PySignal.Signal()
 
     def acceptNavigationRequest(self, url, _type, isMainFrame):
-        logger.info("accept navigation - type {}".format(_type))
-        #logger.info("accept navigation - url {}".format(url))
-        #logger.info("accept navigation - main {}".format(isMainFrame))
-
         if _type == QWebEnginePage.NavigationType.NavigationTypeLinkClicked:
-            logger.info("url clicked: {}".format(url))
+            logger.debug("url clicked: {}".format(url))
             if not url.isValid() or url.isEmpty():
+                logger.warning("url error")
                 return False
             if url.isLocalFile():
-                self.nav_link_clicked_signal.emit(url)
+                logger.debug("emit signal to handle local file")
+                self.nav_link_clicked_internal_signal.emit(url)
                 return False
-            # Keep reference to external window, so it isn't cleared up.
-            # self.external_windows.append(w)
-            QtGui.QDesktopServices.openUrl(url)
+            logger.debug("emit signal for external url")
+            self.nav_link_clicked_external_signal.emit(url)
             return False
         return super().acceptNavigationRequest(url, _type, isMainFrame)
 
@@ -58,7 +56,8 @@ class Notebook(QtWidgets.QWidget):
         # web
         self.web_engine_view = QWebEngineView()
         self.web_page = NotebookPage(self)
-        self.web_page.nav_link_clicked_signal.connect(self.on_click_nav_link)
+        self.web_page.nav_link_clicked_internal_signal.connect(self.on_internal_url)
+        self.web_page.nav_link_clicked_external_signal.connect(self.on_external_url)
         self.web_engine_view.setPage(self.web_page)
         # init
         self.init_ui()
@@ -68,6 +67,16 @@ class Notebook(QtWidgets.QWidget):
             self.data.update({"last_project": list(self.data.get("projects").keys())[0]})
         project_name = self.data.get("last_project")
         self.load_page(self.data.get("projects", {}).get(project_name, {}).get("last_ascii_file", None))
+
+    def on_external_url(self, url):
+        reply = QtWidgets.QMessageBox.question(self, "Proceed",
+                    "Are you sure you want to open the url '{}' in an external browser".format(url),
+                    QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No,
+                    QtWidgets.QMessageBox.StandardButton.No)
+        if reply == QtWidgets.QMessageBox.StandardButton.Yes:
+            logger.debug("open link in external browser")
+            QtGui.QDesktopServices.openUrl(url)
+        return
 
     def read_config(self):
         home_dir = os.path.expanduser("~")
@@ -227,7 +236,7 @@ class Notebook(QtWidgets.QWidget):
         else:
             logger.error("path {} <-mismatch-> url {}".format(path_project, path_url_str))
 
-    def on_click_nav_link(self, url):
+    def on_internal_url(self, url):
         logger.info("open new local url {}".format(url))
         file_name = url.fileName()
         path = url.path()

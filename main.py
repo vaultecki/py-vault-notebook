@@ -1,3 +1,4 @@
+import datetime
 import io
 import json
 import os
@@ -155,7 +156,7 @@ class Notebook(QtWidgets.QWidget):
         # export btn
         export_button = QtWidgets.QPushButton("Export", self)
         hbox2.addWidget(export_button)
-        # export_button.clicked.connect(self.on_export_pdf)
+        export_button.clicked.connect(self.on_export_pdf)
         # edit btn
         edit_page_button = QtWidgets.QPushButton("Edit Page", self)
         hbox2.addWidget(edit_page_button)
@@ -163,7 +164,7 @@ class Notebook(QtWidgets.QWidget):
         # update page
         page_back_btn = QtWidgets.QPushButton("Back", self)
         hbox2.addWidget(page_back_btn)
-        page_back_btn.clicked.connect(self.on_click_back_btn)
+        page_back_btn.clicked.connect(self.on_back_btn)
         # settings
         self.breadcrumb_label = QtWidgets.QLabel()
         breadcrumb_widget = QtWidgets.QHBoxLayout()
@@ -203,14 +204,14 @@ class Notebook(QtWidgets.QWidget):
     def on_click_edit_page(self):
         project_name = self.project_drop_down.currentText()
         project = self.data.get("projects").get(project_name)
-        file_name = "index.asciidoc"
+        file_name = self.web_page.url().fileName()
         path_project = self.data.get("projects", {}).get(self.project_drop_down.currentText(), {}).get("path", "")
-        path_url_str = str(self.web_page.url().path())
-        if path_url_str.startswith(path_project):
+        path_url = self.web_page.url().path()
+        if path_url.startswith(path_project):
             logger.info("starts with")
-            if path_url_str > path_project:
+            if path_url > path_project:
                 logger.info("recreate relative project path")
-                suffix = path_url_str[len(path_project):]
+                suffix = path_url[len(path_project):]
                 file_name = "{}/{}".format(suffix, file_name)
             if file_name.split(".")[-1] in ["adoc", "asciidoc"]:
                 logger.info("load page")
@@ -239,9 +240,33 @@ class Notebook(QtWidgets.QWidget):
         else:
             logger.error("path {} <-mismatch-> url {}".format(path_project, path_url_str))
 
-    def on_click_back_btn(self):
+    def on_back_btn(self):
         logger.info("hit back btn")
         self.web_page.triggerAction(QWebEnginePage.WebAction.Back)
+
+    def on_export_pdf(self):
+        logger.info("hit export")
+        file_name = self.web_page.url().fileName()
+        export_dir = os.path.expanduser("~")
+        if os.name in ["nt", "windows"]:
+            export_dir = os.path.join(export_dir, "Downloads")
+        else:
+            export_dir = os.path.join(export_dir, "Downloads")
+        export_dir = self.data.get("export_dir", export_dir)
+        date_str = datetime.datetime.now().strftime("%Y-%m-%d")
+        file_name = "{}_{}.pdf".format(date_str, file_name)
+        file_name = os.path.join(export_dir, file_name)
+        pdf_file = QtWidgets.QFileDialog.getSaveFileName(self, "Save PDF file", file_name, ".pdf")
+        if pdf_file:
+            pdf_file = pdf_file[0]
+            if pdf_file:
+                self.web_engine_view.page().printToPdf(pdf_file)
+                logger.info("page exported to {}".format(pdf_file))
+                self.data.update({"export_dir": os.path.split(pdf_file)[0]})
+            else:
+                logger.warning("could not export")
+        else:
+            logger.warning("could not export")
 
     @pyqtSlot(QtGui.QCloseEvent)
     def closeEvent(self, event):

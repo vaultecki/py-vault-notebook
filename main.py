@@ -149,7 +149,7 @@ class Notebook(QtWidgets.QMainWindow):
             if not project_highlight:
                 project_highlight = project_name
             self.project_drop_down.addItem(project_name)
-        # todo: highlight right project in dropdown box
+        self.project_drop_down.setCurrentText(project_highlight)
         # search box
         self.search_box.setEditable(True)
         hbox.addWidget(self.search_box)
@@ -164,11 +164,11 @@ class Notebook(QtWidgets.QMainWindow):
         # add btn
         add_project_button = QtWidgets.QPushButton('Add Project', self)
         hbox2.addWidget(add_project_button)
-        # add_project_button.clicked.connect(self.on_click_add_project)
+        add_project_button.clicked.connect(self.create_new_project)
         # new btn
         new_project_button = QtWidgets.QPushButton('New Project', self)
         hbox2.addWidget(new_project_button)
-        # new_project_button.clicked.connect(self.on_click_new_project)
+        new_project_button.clicked.connect(self.create_new_project)
         # export btn
         export_button = QtWidgets.QPushButton("Export", self)
         hbox2.addWidget(export_button)

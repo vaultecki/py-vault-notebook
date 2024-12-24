@@ -16,6 +16,7 @@ import logging
 
 from editpage import EditPage
 from notegit import NoteGit
+from notehelper import text_2_html
 
 
 logger = logging.getLogger(__name__)
@@ -340,14 +341,6 @@ class Notebook(QtWidgets.QMainWindow):
         self.web_page = None
         self.edit_page_window.close()
         self.edit_page_window = None
-
-
-def text_2_html(text_in):
-    # print("convert asciidoc text")
-    text_out = io.StringIO()
-    test = asciidoc.AsciiDocAPI()
-    test.execute(io.StringIO(text_in), text_out, backend="html5")
-    return text_out.getvalue()
 
 
 class NotebookApp:

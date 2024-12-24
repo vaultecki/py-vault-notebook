@@ -8,6 +8,8 @@ from PyQt6 import QtWidgets, QtCore, QtGui
 from PyQt6.QtCore import pyqtSlot
 import logging
 
+from notehelper import text_2_html
+
 
 logger = logging.getLogger(__name__)
 
@@ -196,6 +198,12 @@ class EditPage(QtWidgets.QWidget):
         text_file_path = os.path.join(self.project_data.get("path", ""), self.file_name)
         logger.debug("save changes in {}".format(text_file_path))
         text = self.text_field.toPlainText()
+        try:
+            html_text = text_2_html(text)
+        except Exception as e:
+            logger.error("error in asciidoc: {}".format(e))
+            self.on_discard_changes()
+            return
         with open(text_file_path, "w") as text_file:
             text_file.writelines(text)
         self.changed = False

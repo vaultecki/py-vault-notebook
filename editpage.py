@@ -1,16 +1,10 @@
-import io
-import json
 import os
 import sys
-import time
 
-import asciidoc
 import PySignal
 
 from PyQt6 import QtWidgets, QtCore, QtGui
 from PyQt6.QtCore import pyqtSlot
-from PyQt6.QtWebEngineCore import QWebEnginePage
-from PyQt6.QtWebEngineWidgets import QWebEngineView
 import logging
 
 

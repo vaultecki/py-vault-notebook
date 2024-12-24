@@ -69,8 +69,8 @@ class Notebook(QtWidgets.QMainWindow):
             self.data.update({"last_project": list(self.data.get("projects").keys())[0]})
         project_name = self.data.get("last_project")
         self.load_page(self.data.get("projects", {}).get(project_name, {}).get("last_ascii_file", None))
-        self.edit_page_window = EditPage(project_data=self.data.get("projects", {}).get(project_name, {}),
-                                         project_name=project_name, file_name=None)
+        self.edit_page_window = EditPage(project_data=self.data.get("projects", {}).get(project_name, {}), project_name=project_name,
+                                         file_name=self.data.get("projects", {}).get(project_name, {}).get("last_ascii_file", None))
 
     def on_external_url(self, url):
         reply = QtWidgets.QMessageBox.question(self, "Proceed",
@@ -297,6 +297,8 @@ class Notebook(QtWidgets.QMainWindow):
         self.web_engine_view.setPage(None)
         self.web_engine_view = None
         self.web_page = None
+        self.edit_page_window.close()
+        self.edit_page_window = None
 
 
 def text_2_html(text_in):

@@ -14,12 +14,16 @@ logger = logging.getLogger(__name__)
 class EditPage(QtWidgets.QWidget):
     ascii_file_changed = PySignal.Signal()
 
-    def __init__(self, project_data, project_name, file_name=None):
+    def __init__(self, project_data, project_name, file_name):
         super().__init__()
+        if not project_data:
+            raise TypeError("missing project data")
+        if not project_name:
+            raise TypeError("missing project name")
+        if not file_name:
+            raise TypeError("missing file name")
         self.project_data = project_data
         self.project_name = project_name
-        if not file_name:
-            file_name = self.project_data.get("last_ascii_file")
         self.file_name = file_name
         logger.info("edit {} from project {}".format(file_name, project_name))
 
@@ -52,26 +56,20 @@ class EditPage(QtWidgets.QWidget):
         format_container.setLayout(format_layout)
 
         # internal link button
-        int_link_btn = QtWidgets.QPushButton("Int Link")
-        int_link_btn.setToolTip("<b>Internen Link hinzufügen</b><br><br>Fügen Sie einen internen Link hinzu")
-        format_layout.addWidget(int_link_btn, 0, 0)
-        # int_link_btn.clicked.connect(self.handle_click_link_buttons)
-
-        # external link button
-        ext_link_btn = QtWidgets.QPushButton("Ext Link")
-        ext_link_btn.setToolTip("<b>Externen Link hinzufügen</b><br><br>Fügen Sie einen externen Link hinzu")
-        format_layout.addWidget(ext_link_btn, 0, 1)
-        # ext_link_btn.clicked.connect(lambda: self.handle_click_link_buttons(external=True))
+        show_docs_btn = QtWidgets.QPushButton("show docs")
+        show_docs_btn.setToolTip("<b>show all linkable internal documents</b>")
+        format_layout.addWidget(show_docs_btn, 0, 0)
+        show_docs_btn.clicked.connect(self.on_show_docs)
 
         # open git
         open_git_btn = QtWidgets.QPushButton("Commits")
-        format_layout.addWidget(open_git_btn, 0, 2)
-        # open_git_btn.clicked.connect(self.on_open_git)
+        format_layout.addWidget(open_git_btn, 0, 1)
+        open_git_btn.clicked.connect(self.on_open_git)
 
         # save btn
         save_btn = QtWidgets.QPushButton("Speichern")
         format_layout.addWidget(save_btn, 1, 0)
-        save_btn.clicked.connect(self.save_changes)
+        save_btn.clicked.connect(self.on_save_changes)
 
         # reset changes button
         discard_btn = QtWidgets.QPushButton("Verwerfen")
@@ -81,37 +79,19 @@ class EditPage(QtWidgets.QWidget):
         # upload
         upload_file_btn = QtWidgets.QPushButton("Upload File")
         upload_file_btn.setToolTip("<b>Add files (img, pdf, ..) to project</b>")
-        format_layout.addWidget(upload_file_btn, 0, 4)
-        # upload_file_btn.clicked.connect(self.on_click_discard_changes)
+        format_layout.addWidget(upload_file_btn, 0, 3)
+        upload_file_btn.clicked.connect(self.on_upload)
 
         # info button
         info_button = QtWidgets.QPushButton("ℹ️")
-        format_layout.addWidget(info_button, 1, 4)
+        format_layout.addWidget(info_button, 1, 3)
         info_button.clicked.connect(self.on_click_info)
 
         return format_container
 
-    def handle_click_link_buttons(self, external=False):
-        sign = self.rules.get("link", {}).get("txt", [])
-        if external:
-            path = self.rules.get("link").get("style")
-
-        else:
-            # todo select either file or folder available
-            path = QtWidgets.QFileDialog.getOpenFileName(self, "Select File")[0]
-            if path:
-                self.logger.debug("Path selected: {}".format(path))
-
-        placeholder = path
-        selection_start = self.text_field.textCursor().selectionStart() + len(sign[0]) + len(sign[1]) + len(placeholder)
-        text_to_set = "{}{}{}{}{}".format(sign[0], path, sign[1], placeholder, sign[2])
-        self.text_field.insertPlainText(text_to_set)
-
-        length = len(placeholder)
-        self.__select_text(selection_start, length)
-        self.text_field.setFocus()
-
     def on_discard_changes(self):
+        if not self.changed:
+            return
         reply = QtWidgets.QMessageBox.question(self, "Text verwerfen",
                             "Wollen Sie den Text wirklich verwerfen?",
                             QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No,
@@ -122,10 +102,22 @@ class EditPage(QtWidgets.QWidget):
             self.load_content()
 
         self.text_field.setFocus()
+        return
+
+    def on_show_docs(self):
+        logger.info("clicked show docs")
+        # todo implement something useful
+        pass
 
     def on_open_git(self):
-        self.git_window = GitWindow(git_repo=self.repo, project_path=self.project_path, html_handler=self.html_handler, debug=self.debug)
-        self.git_window.show()
+        logger.info("open git clicked")
+        pass
+        # self.git_window = GitWindow(git_repo=self.repo, project_path=self.project_path, html_handler=self.html_handler, debug=self.debug)
+        # self.git_window.show()
+
+    def on_upload(self):
+        logger.info("upload clicked")
+        pass
 
     def on_enter_pressed(self, block_nr):
         prev_line_text = self.text_field.textCursor().block().previous().text()
@@ -151,7 +143,9 @@ class EditPage(QtWidgets.QWidget):
         logger.debug("text changed")
         self.changed = True
 
-    def save_changes(self):
+    def on_save_changes(self):
+        if not self.changed:
+            return
         text_file_path = os.path.join(self.project_data.get("path", ""), self.file_name)
         logger.debug("save changes in {}".format(text_file_path))
         text = self.text_field.toPlainText()
@@ -159,6 +153,7 @@ class EditPage(QtWidgets.QWidget):
             text_file.writelines(text)
         self.changed = False
         self.ascii_file_changed.emit(self.file_name)
+        return
 
     def load_content(self):
         text_file_path = os.path.join(self.project_data.get("path", ""), self.file_name)
@@ -199,11 +194,12 @@ class EditPage(QtWidgets.QWidget):
             ret = msg_box.exec()
             if ret == QtWidgets.QMessageBox.StandardButton.Yes:
                 logger.info("close window - save changes")
-                self.save_changes()
+                self.on_save_changes()
             else:
                 logger.info("close window - changes not saved")
         else:
             logger.info("close window - no changes")
+
 
 if __name__ == "__main__":
     logger = logging.getLogger(__name__)

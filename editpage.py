@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 class EditPage(QtWidgets.QWidget):
     ascii_file_changed = PySignal.Signal()
     project_data_changed = PySignal.Signal()
+    project_new_file = PySignal.Signal()
 
     def __init__(self, project_data, project_name, file_name):
         super().__init__()
@@ -150,8 +151,20 @@ class EditPage(QtWidgets.QWidget):
             logger.warning("no file for upload target selected")
             return
         copy_file = copy_file[0]
-        logger.info("copy file {} to project path as {}".format(import_file, copy_file))
-        shutil.copy(import_file, copy_file)
+        path_url_str = str(os.path.split(copy_file)[0])
+        file_name = str(os.path.split(copy_file)[1])
+        if path_url_str.startswith(copy_dir):
+            logger.info("url starts with {}".format(copy_dir))
+            if path_url_str > copy_dir:
+                logger.info("recreate relative project path")
+                cut_length = len(copy_dir) + 1
+                if copy_dir.endswith("/"):
+                    cut_length = cut_length - 1
+                logger.info("copy file {} to project path as {}".format(import_file, copy_file))
+                prefix = path_url_str[cut_length:]
+                file_name = "{}/{}".format(prefix, file_name)
+            shutil.copy(import_file, copy_file)
+            self.project_new_file.emit(file_name)
 
     def on_enter_pressed(self, block_nr):
         prev_line_text = self.text_field.textCursor().block().previous().text()

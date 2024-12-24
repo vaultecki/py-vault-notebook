@@ -15,6 +15,7 @@ from PyQt6.QtWebEngineWidgets import QWebEngineView
 import logging
 
 from editpage import EditPage
+from notegit import NoteGit
 
 
 logger = logging.getLogger(__name__)
@@ -67,10 +68,11 @@ class Notebook(QtWidgets.QMainWindow):
             self.create_new_project()
         if not self.data.get("last_project"):
             self.data.update({"last_project": list(self.data.get("projects").keys())[0]})
-        project_name = self.data.get("last_project")
-        self.load_page(self.data.get("projects", {}).get(project_name, {}).get("last_ascii_file", None))
+        project_name = self.data.get("last_project", self.project_drop_down.currentText())
+        self.repo = NoteGit(self.data.get("projects", {}).get(project_name, {}).get("path", ""))
+        self.load_page(self.data.get("projects", {}).get(project_name, {}).get("last_ascii_file", ""))
         self.edit_page_window = EditPage(project_data=self.data.get("projects", {}).get(project_name, {}), project_name=project_name,
-                                         file_name=self.data.get("projects", {}).get(project_name, {}).get("last_ascii_file", None))
+                                         file_name=self.data.get("projects", {}).get(project_name, {}).get("last_ascii_file", ""))
 
     def on_external_url(self, url):
         reply = QtWidgets.QMessageBox.question(self, "Proceed",
@@ -130,6 +132,7 @@ class Notebook(QtWidgets.QMainWindow):
             self.data.update({"projects": projects})
             self.data.update({"last_project": project_name})
             self.project_drop_down.addItem(project_name)
+            self.repo = NoteGit(project_path)
             self.load_page(self.data.get("index_file", "index.asciidoc"))
 
     def init_ui(self):
@@ -207,6 +210,7 @@ class Notebook(QtWidgets.QMainWindow):
             try:
                 with open(ascii_file_name, "w") as ascii_file:
                     ascii_file.write(text_in)
+                    self.repo.add_file(file_name)
             except FileNotFoundError:
                 logger.error("problem writing new file {}".format(ascii_file_name))
                 return
@@ -227,6 +231,14 @@ class Notebook(QtWidgets.QMainWindow):
         #     chrome_file_name = os.path.join(project.get("path"), file_name)
         #     logger.info("other files than adoc: {}".format(chrome_file_name))
         #     self.web_page.load(QUrl("file://{}".format(chrome_file_name)))
+
+    def on_file_edited(self, file_name):
+        logger.info("git update {}".format(file_name))
+        self.repo.update_file(file_name)
+
+    def on_upload_file(self, file_name):
+        logger.info("add uploaded file {} to git".format(file_name))
+        self.repo.add_file(file_name)
 
     def on_click_edit_page(self):
         logger.info("edit clicked")
@@ -249,10 +261,14 @@ class Notebook(QtWidgets.QMainWindow):
             if file_name.split(".")[-1] in ["adoc", "asciidoc"]:
                 logger.info("edit page {}".format(file_name))
                 self.edit_page_window.ascii_file_changed.disconnect(self.load_page)
+                self.edit_page_window.ascii_file_changed.disconnect(self.on_file_edited)
+                self.edit_page_window.project_new_file.disconnect(self.on_upload_file)
                 self.edit_page_window.project_data_changed.disconnect(self.project_data_update)
                 self.edit_page_window = EditPage(project_data=project, project_name=project_name, file_name=file_name)
                 self.edit_page_window.show()
                 self.edit_page_window.ascii_file_changed.connect(self.load_page)
+                self.edit_page_window.ascii_file_changed.connect(self.on_file_edited)
+                self.edit_page_window.project_new_file.connect(self.on_upload_file)
                 self.edit_page_window.project_data_changed.connect(self.project_data_update)
         else:
             logger.error("path {} <-mismatch-> url {}".format(path_project, path_url_str))
@@ -327,6 +343,7 @@ def text_2_html(text_in):
     test = asciidoc.AsciiDocAPI()
     test.execute(io.StringIO(text_in), text_out, backend="html5")
     return text_out.getvalue()
+
 
 class NotebookApp:
     def __init__(self):

@@ -194,6 +194,8 @@ class Notebook(QtWidgets.QMainWindow):
         project_name = self.project_drop_down.currentText()
         logger.info("Loading page {} from project {}".format(file_name, project_name))
         project = self.data.get("projects").get(project_name)
+        if file_name.split(".")[-1].lower() not in ["adoc", "asciidoc"]:
+            return
         ascii_file_name = os.path.join(project.get("path"), file_name)
         logger.info("Loading page {}".format(ascii_file_name))
         try:
@@ -210,9 +212,21 @@ class Notebook(QtWidgets.QMainWindow):
                 return
         html_text = text_2_html(text_in)
         html_file_name = "{}.html".format(ascii_file_name)
-        with open(html_file_name, "w") as html_file:
-            html_file.write(html_text)
+        try:
+            with open(html_file_name, "w") as html_file:
+                html_file.write(html_text)
+        except FileNotFoundError:
+            logger.error("problem writing new file {}".format(html_file_name))
+            return
         self.web_page.load(QUrl("file://{}".format(html_file_name)))
+        #
+        # todo: check for later to include other files like html/ pdf in direct loading
+        # or open in external program
+        #
+        # if file_name.split(".")[-1].lower() in ["htm", "html", "txt", "pdf"]:
+        #     chrome_file_name = os.path.join(project.get("path"), file_name)
+        #     logger.info("other files than adoc: {}".format(chrome_file_name))
+        #     self.web_page.load(QUrl("file://{}".format(chrome_file_name)))
 
     def on_click_edit_page(self):
         logger.info("edit clicked")
@@ -235,11 +249,18 @@ class Notebook(QtWidgets.QMainWindow):
             if file_name.split(".")[-1] in ["adoc", "asciidoc"]:
                 logger.info("edit page {}".format(file_name))
                 self.edit_page_window.ascii_file_changed.disconnect(self.load_page)
+                self.edit_page_window.project_data_changed.disconnect(self.project_data_update)
                 self.edit_page_window = EditPage(project_data=project, project_name=project_name, file_name=file_name)
                 self.edit_page_window.show()
                 self.edit_page_window.ascii_file_changed.connect(self.load_page)
+                self.edit_page_window.project_data_changed.connect(self.project_data_update)
         else:
             logger.error("path {} <-mismatch-> url {}".format(path_project, path_url_str))
+
+    def project_data_update(self, project_data):
+        project_name = self.project_drop_down.currentText()
+        logger.info("update project data for {}".format(project_name))
+        self.data.get("projects").update({project_name: project_data})
 
     def on_internal_url(self, url):
         logger.info("open new local url {}".format(url))
@@ -256,9 +277,8 @@ class Notebook(QtWidgets.QMainWindow):
                     cut_length = cut_length -1
                 prefix = path_url_str[cut_length:]
                 file_name = "{}/{}".format(prefix, file_name)
-            if file_name.split(".")[-1] in ["adoc", "asciidoc"]:
-                logger.info("load page")
-                self.load_page(file_name)
+            logger.info("load page")
+            self.load_page(file_name)
         else:
             logger.error("path {} <-mismatch-> url {}".format(path_project, path_url_str))
 
@@ -278,7 +298,7 @@ class Notebook(QtWidgets.QMainWindow):
         date_str = datetime.datetime.now().strftime("%Y-%m-%d")
         file_name = "{}_{}.pdf".format(date_str, file_name)
         file_name = os.path.join(export_dir, file_name)
-        pdf_file = QtWidgets.QFileDialog.getSaveFileName(self, "Save PDF file", file_name, ".pdf")
+        pdf_file = QtWidgets.QFileDialog.getSaveFileName(self, "Save PDF file", file_name, "PDF (*.pdf)")
         if pdf_file:
             pdf_file = pdf_file[0]
             if pdf_file:

@@ -18,6 +18,7 @@ class EditPage(QtWidgets.QWidget):
     ascii_file_changed = PySignal.Signal()
     project_data_changed = PySignal.Signal()
     project_new_file = PySignal.Signal()
+    geometry_update = PySignal.Signal()
 
     def __init__(self, project_data, project_name, file_name):
         super().__init__()
@@ -40,7 +41,7 @@ class EditPage(QtWidgets.QWidget):
 
         # settings
         self.setLayout(main_layout)
-        self.resize(900, 500)
+        #self.resize(900, 500)
         self.text_field.setLineWrapMode(QtWidgets.QPlainTextEdit.LineWrapMode.NoWrap)
         self.setWindowModality(QtCore.Qt.WindowModality.ApplicationModal)
 
@@ -53,6 +54,10 @@ class EditPage(QtWidgets.QWidget):
         # loadings
         self.load_content()
         logger.info("Edit window initialized")
+
+    def set_geometry(self, geometry):
+        logger.info("set window size")
+        self.setGeometry(geometry[0], geometry[1], geometry[2], geometry[3])
 
     def init_format_field(self):
         # main widget and layout
@@ -235,6 +240,9 @@ class EditPage(QtWidgets.QWidget):
     @pyqtSlot(QtGui.QCloseEvent)
     def closeEvent(self, event):
         logger.info("Trying to close window")
+        geometry = (self.frameGeometry().x(), self.frameGeometry().y(), self.frameGeometry().width(), self.frameGeometry().height())
+        self.geometry_update.emit(geometry)
+        print(geometry)
         if self.changed:
             msg_box = QtWidgets.QMessageBox()
             msg_box.setText("Möchten Sie die Änderungen Speichern?")

@@ -278,14 +278,21 @@ class Notebook(QtWidgets.QMainWindow):
                 self.edit_page_window.ascii_file_changed.disconnect(self.on_file_edited)
                 self.edit_page_window.project_new_file.disconnect(self.on_upload_file)
                 self.edit_page_window.project_data_changed.disconnect(self.project_data_update)
+                self.edit_page_window.geometry_update.disconnect(self.edit_page_window_geometry)
                 self.edit_page_window = EditPage(project_data=project, project_name=project_name, file_name=file_name)
+                geometry = self.data.get("edit_window_geometry", [300, 300, 600, 600])
+                self.edit_page_window.set_geometry(geometry)
                 self.edit_page_window.show()
                 self.edit_page_window.ascii_file_changed.connect(self.load_page)
                 self.edit_page_window.ascii_file_changed.connect(self.on_file_edited)
                 self.edit_page_window.project_new_file.connect(self.on_upload_file)
+                self.edit_page_window.geometry_update.connect(self.edit_page_window_geometry)
                 self.edit_page_window.project_data_changed.connect(self.project_data_update)
         else:
             logger.error("path {} <-mismatch-> url {}".format(path_project, path_url_str))
+
+    def edit_page_window_geometry(self, geometry):
+        self.data.update({"edit_window_geometry": geometry})
 
     def project_data_update(self, project_data):
         project_name = self.project_drop_down.currentText()

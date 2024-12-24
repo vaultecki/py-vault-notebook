@@ -199,6 +199,22 @@ class Notebook(QtWidgets.QMainWindow):
         project_name = self.project_drop_down.currentText()
         logger.info("Loading page {} from project {}".format(file_name, project_name))
         project = self.data.get("projects").get(project_name)
+        #
+        # open files in webview
+        if file_name.split(".")[-1].lower() in ["htm", "html", "txt", "jpg", "png", "jpeg"]:
+            chrome_file_name = os.path.join(project.get("path"), file_name)
+            logger.info("open other files in webview: {}".format(chrome_file_name))
+            self.web_page.load(QUrl("file://{}".format(chrome_file_name)))
+            return
+        #
+        # open pdf in extern
+        if file_name.split(".")[-1].lower() in ["pdf"]:
+            pdf_file_name = os.path.join(project.get("path"), file_name)
+            logger.info("open pdf in extern: {}".format(pdf_file_name))
+            self.on_external_url(QUrl("file://{}".format(pdf_file_name)))
+            return
+        #
+        # dont open rest
         if file_name.split(".")[-1].lower() not in ["adoc", "asciidoc"]:
             return
         ascii_file_name = os.path.join(project.get("path"), file_name)
@@ -229,14 +245,6 @@ class Notebook(QtWidgets.QMainWindow):
             logger.error("problem writing new file {}".format(html_file_name))
             return
         self.web_page.load(QUrl("file://{}".format(html_file_name)))
-        #
-        # todo: check for later to include other files like html/ pdf in direct loading
-        # or open in external program
-        #
-        # if file_name.split(".")[-1].lower() in ["htm", "html", "txt", "pdf"]:
-        #     chrome_file_name = os.path.join(project.get("path"), file_name)
-        #     logger.info("other files than adoc: {}".format(chrome_file_name))
-        #     self.web_page.load(QUrl("file://{}".format(chrome_file_name)))
 
     def on_file_edited(self, file_name):
         logger.info("git update {}".format(file_name))
@@ -291,7 +299,7 @@ class Notebook(QtWidgets.QMainWindow):
         path_project = self.data.get("projects", {}).get(self.project_drop_down.currentText(), {}).get("path", "")
         path_url_str = str(os.path.split(path)[0])
         if path_url_str.startswith(path_project):
-            logger.info("starts with")
+            logger.info("starts with {}".format(path_project))
             if path_url_str > path_project:
                 logger.info("recreate relative project path")
                 cut_length = len(path_project)+1

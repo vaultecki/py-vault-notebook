@@ -242,7 +242,6 @@ class EditPage(QtWidgets.QWidget):
         logger.info("Trying to close window")
         geometry = (self.frameGeometry().x(), self.frameGeometry().y(), self.frameGeometry().width(), self.frameGeometry().height())
         self.geometry_update.emit(geometry)
-        print(geometry)
         if self.changed:
             msg_box = QtWidgets.QMessageBox()
             msg_box.setText("Möchten Sie die Änderungen Speichern?")

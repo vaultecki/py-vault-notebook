@@ -123,7 +123,7 @@ class Notebook(QtWidgets.QMainWindow):
                     logger.info("filepath {} found, opening index {}".format(filepath, index_file))
                 else:
                     with open(filepath, "w") as text_file:
-                        text_str = "== new project {}\n\nasciidoc format\n".format(project_name)
+                        text_str = ("== new project {}\n\nasciidoc format\nlink:https://docs.asciidoctor.org/asciidoc/latest/syntax-quick-reference/[link quick reference guide asciidoc]\n").format(project_name)
                         text_file.write(text_str)
                         logger.error("new index file created {}".format(filepath))
             projects = self.data.get("projects", {})
@@ -133,6 +133,7 @@ class Notebook(QtWidgets.QMainWindow):
             self.data.update({"last_project": project_name})
             self.project_drop_down.addItem(project_name)
             self.repo = NoteGit(project_path)
+            self.repo.add_file(self.data.get("index_file", "index.asciidoc"))
             self.load_page(self.data.get("index_file", "index.asciidoc"))
 
     def init_ui(self):
@@ -207,6 +208,10 @@ class Notebook(QtWidgets.QMainWindow):
         except FileNotFoundError:
             logger.warning("file {} not found".format(ascii_file_name))
             text_in = "== empty page\n"
+            if not os.path.exists(os.path.split(ascii_file_name)[0]):
+                os.makedirs(os.path.split(ascii_file_name)[0])
+            if os.path.isdir(os.path.split(ascii_file_name)[0]):
+                logger.error("path {} not a directory".format(os.path.split(ascii_file_name)[0]))
             try:
                 with open(ascii_file_name, "w") as ascii_file:
                     ascii_file.write(text_in)

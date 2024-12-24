@@ -1,5 +1,6 @@
 import os
 import sys
+import shutil
 
 import PySignal
 
@@ -13,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 class EditPage(QtWidgets.QWidget):
     ascii_file_changed = PySignal.Signal()
+    project_data_changed = PySignal.Signal()
 
     def __init__(self, project_data, project_name, file_name):
         super().__init__()
@@ -117,7 +119,39 @@ class EditPage(QtWidgets.QWidget):
 
     def on_upload(self):
         logger.info("upload clicked")
-        pass
+        import_dir = os.path.expanduser("~")
+        if os.name in ["nt", "windows"]:
+            import_dir = os.path.join(import_dir, "Downloads")
+        else:
+            import_dir = os.path.join(import_dir, "Downloads")
+        import_dir = self.project_data.get("import_dir", import_dir)
+        import_file = QtWidgets.QFileDialog.getOpenFileName(self, "Import file", import_dir, "*")
+        if not import_file:
+            logger.warning("no file for upload selected")
+            return
+        if not import_file[0]:
+            logger.warning("no file for upload selected")
+            return
+        import_file = import_file[0]
+        file_name = os.path.split(import_file)[1]
+        import_dir = os.path.split(import_file)[0]
+        self.project_data.update({"import_dir": import_dir})
+        self.project_data_changed.emit(self.project_data)
+        copy_dir = self.project_data.get("path")
+        if not copy_dir:
+            logger.error("no project path set")
+            return
+        file_name = os.path.join(copy_dir, file_name)
+        copy_file = QtWidgets.QFileDialog.getSaveFileName(self, "Save file to project path", file_name, "*")
+        if not copy_file:
+            logger.warning("no file for upload target selected")
+            return
+        if not copy_file[0]:
+            logger.warning("no file for upload target selected")
+            return
+        copy_file = copy_file[0]
+        logger.info("copy file {} to project path as {}".format(import_file, copy_file))
+        shutil.copy(import_file, copy_file)
 
     def on_enter_pressed(self, block_nr):
         prev_line_text = self.text_field.textCursor().block().previous().text()

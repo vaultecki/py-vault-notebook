@@ -189,8 +189,8 @@ class Notebook(QtWidgets.QMainWindow):
         main_widget = QtWidgets.QWidget()
         main_widget.setLayout(vbox)
         self.setCentralWidget(main_widget)
-        self.setGeometry(300, 300, 350, 250)
-        self.resize(900, 500)
+        geometry = self.data.get("geometry", [300, 250, 900, 600])
+        self.setGeometry(geometry[0], geometry[1], geometry[2], geometry[3])
         logger.info("Main window widgets created")
 
     def load_page(self, file_name=None):
@@ -342,6 +342,8 @@ class Notebook(QtWidgets.QMainWindow):
 
     @pyqtSlot(QtGui.QCloseEvent)
     def closeEvent(self, event):
+        geometry = (self.frameGeometry().x(), self.frameGeometry().y(), self.frameGeometry().width(), self.frameGeometry().height())
+        self.data.update({"geometry": geometry})
         logger.info("Closing the notebook window")
         self.write_config()
         self.web_engine_view.setPage(None)

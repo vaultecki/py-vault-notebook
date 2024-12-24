@@ -141,6 +141,7 @@ class Notebook(QtWidgets.QMainWindow):
         new_project_name = self.project_drop_down.currentText()
         logger.info("dropdown project change to {}".format(new_project_name))
         self.data.update({"last_project": new_project_name})
+        self.repo = NoteGit(self.data.get("projects", {}).get(new_project_name, {}).get("path", None))
         self.load_page()
 
     def init_ui(self):

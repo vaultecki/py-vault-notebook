@@ -30,6 +30,10 @@ class NoteGit:
         logger.info("check if git is dirty")
         if self.repo.is_dirty():
             logger.warning("git is dirty")
+            # todo integrate unstaged files
+            #unstaged_files = self.repo.untracked_files
+            #for file_name in unstaged_files:
+            #    print(file_name)
             diffs = self.repo.index.diff(None)
             for diff in diffs:
                 self.update_file(diff.a_path)

@@ -135,7 +135,13 @@ class Notebook(QtWidgets.QMainWindow):
             self.project_drop_down.addItem(project_name)
             self.repo = NoteGit(project_path)
             self.repo.add_file(self.data.get("index_file", "index.asciidoc"))
-            self.load_page(self.data.get("index_file", "index.asciidoc"))
+            self.load_page()
+
+    def on_project_change(self):
+        new_project_name = self.project_drop_down.currentText()
+        logger.info("dropdown project change to {}".format(new_project_name))
+        self.data.update({"last_project": new_project_name})
+        self.load_page()
 
     def init_ui(self):
         vbox = QtWidgets.QVBoxLayout()
@@ -150,6 +156,7 @@ class Notebook(QtWidgets.QMainWindow):
                 project_highlight = project_name
             self.project_drop_down.addItem(project_name)
         self.project_drop_down.setCurrentText(project_highlight)
+        self.project_drop_down.currentTextChanged.connect(self.on_project_change)
         # search box
         self.search_box.setEditable(True)
         hbox.addWidget(self.search_box)

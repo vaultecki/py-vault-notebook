@@ -41,7 +41,7 @@ class NotebookPage(QWebEnginePage):
         return super().acceptNavigationRequest(url, _type, isMainFrame)
 
 
-class Notebook(QtWidgets.QWidget):
+class Notebook(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         # init later used variables
@@ -50,7 +50,9 @@ class Notebook(QtWidgets.QWidget):
         # init up elements
         self.project_drop_down = QtWidgets.QComboBox()
         self.search_box = QtWidgets.QComboBox()
-        self.breadcrumb_label = QtWidgets.QLabel()
+        #
+        self.setWindowTitle('Notebook')
+        # todo icon ?
         # config
         self.read_config()
         # web
@@ -67,6 +69,8 @@ class Notebook(QtWidgets.QWidget):
             self.data.update({"last_project": list(self.data.get("projects").keys())[0]})
         project_name = self.data.get("last_project")
         self.load_page(self.data.get("projects", {}).get(project_name, {}).get("last_ascii_file", None))
+        self.edit_page_window = EditPage(project_data=self.data.get("projects", {}).get(project_name, {}),
+                                         project_name=project_name, file_name=None)
 
     def on_external_url(self, url):
         reply = QtWidgets.QMessageBox.question(self, "Proceed",
@@ -129,11 +133,10 @@ class Notebook(QtWidgets.QWidget):
             self.load_page(self.data.get("index_file", "index.asciidoc"))
 
     def init_ui(self):
-        vbox = QtWidgets.QVBoxLayout(self)
+        vbox = QtWidgets.QVBoxLayout()
         hbox = QtWidgets.QHBoxLayout()
         hbox2 = QtWidgets.QHBoxLayout()
         # projects from conf
-        self.project_drop_down = QtWidgets.QComboBox()
         self.project_drop_down.setMinimumWidth(130)
         hbox.addWidget(self.project_drop_down)
         project_highlight = self.data.get("last_project", "")
@@ -143,7 +146,6 @@ class Notebook(QtWidgets.QWidget):
             self.project_drop_down.addItem(project_name)
         # todo: highlight right project in dropdown box
         # search box
-        self.search_box = QtWidgets.QComboBox()
         self.search_box.setEditable(True)
         hbox.addWidget(self.search_box)
         # search btn
@@ -175,18 +177,15 @@ class Notebook(QtWidgets.QWidget):
         hbox2.addWidget(page_back_btn)
         page_back_btn.clicked.connect(self.on_back_btn)
         # settings
-        self.breadcrumb_label = QtWidgets.QLabel()
-        breadcrumb_widget = QtWidgets.QHBoxLayout()
-        breadcrumb_widget.addWidget(self.breadcrumb_label)
         vbox.addLayout(hbox)
         vbox.addLayout(hbox2)
         #vbox.addLayout(breadcrumb_widget)
         vbox.addWidget(self.web_engine_view)
-        self.setLayout(vbox)
+        main_widget = QtWidgets.QWidget()
+        main_widget.setLayout(vbox)
+        self.setCentralWidget(main_widget)
         self.setGeometry(300, 300, 350, 250)
         self.resize(900, 500)
-        self.setWindowTitle('QWebEngineView')
-        self.show()
         logger.info("Main window widgets created")
 
     def load_page(self, file_name=None):
@@ -234,11 +233,11 @@ class Notebook(QtWidgets.QWidget):
                 prefix = path_url_str[cut_length:]
                 file_name = "{}/{}".format(prefix, file_name)
             if file_name.split(".")[-1] in ["adoc", "asciidoc"]:
-                logger.info("load page {}".format(file_name))
-                # edit_page_window = EditPage(project_data=project, project_name=project_name, file_name=file_name)
-                # edit_page_window.show()
-                # self.edit_page_window.window_closed_sygnal.connect(self.update_current_page)
-                # self.edit_page_window.show()
+                logger.info("edit page {}".format(file_name))
+                self.edit_page_window.ascii_file_changed.disconnect(self.load_page)
+                self.edit_page_window = EditPage(project_data=project, project_name=project_name, file_name=file_name)
+                self.edit_page_window.show()
+                self.edit_page_window.ascii_file_changed.connect(self.load_page)
         else:
             logger.error("path {} <-mismatch-> url {}".format(path_project, path_url_str))
 
@@ -293,7 +292,7 @@ class Notebook(QtWidgets.QWidget):
 
     @pyqtSlot(QtGui.QCloseEvent)
     def closeEvent(self, event):
-        logger.info("Closing the window")
+        logger.info("Closing the notebook window")
         self.write_config()
         self.web_engine_view.setPage(None)
         self.web_engine_view = None
@@ -307,6 +306,15 @@ def text_2_html(text_in):
     test.execute(io.StringIO(text_in), text_out, backend="html5")
     return text_out.getvalue()
 
+class NotebookApp:
+    def __init__(self):
+        self.app = QtWidgets.QApplication(sys.argv)
+        self.notes = Notebook()
+
+    def run(self):
+        self.notes.show()
+        self.app.exec()
+
 
 if __name__ == "__main__":
     logger = logging.getLogger(__name__)
@@ -314,6 +322,5 @@ if __name__ == "__main__":
 
     logger.info("moin")
 
-    app = QtWidgets.QApplication(sys.argv)
-    ex = Notebook()
-    sys.exit(app.exec())
+    multi_window = NotebookApp()
+    multi_window.run()

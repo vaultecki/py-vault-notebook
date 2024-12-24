@@ -1,3 +1,7 @@
-# py-vault-qt-wiki
+# py-vault-notebook
 
-python qt web widget test
+NotebookApp based on:
+- python
+    - pyqt6
+    - asciidoc
+

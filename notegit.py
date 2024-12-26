@@ -17,6 +17,8 @@ class NoteGit:
         except git.exc.InvalidGitRepositoryError:
             self.repo_load_ok = False
             self.init_git(project_path)
+        if not self.repo:
+            raise ImportError
         if self.repo:
             logger.info("repo exists")
             for remote in self.repo.remotes:
@@ -74,6 +76,18 @@ class NoteGit:
             except git.exc.GitCommandError:
                 logger.warning("git error for remote {}".format(remote.name))
 
+    def list_all_files(self):
+        commits = self.repo.iter_commits(rev=self.repo.head.reference)
+        files = []
+        for commit in commits:
+            # print(commit)
+            git_files = self.repo.git.show("--pretty=", "--name-only", commit)
+            git_files = git_files.split("\n")
+            for file in git_files:
+                if file not in files:
+                    files.append(file)
+        return files
+
 
 if __name__ == "__main__":
     logger = logging.getLogger(__name__)
@@ -81,4 +95,4 @@ if __name__ == "__main__":
 
     logger.info("moin")
 
-    gittest = NoteGit("/home/ecki/tmp2/notebooks/private")
+    gittest = NoteGit("/home/ecki/temp/notebooks/private")

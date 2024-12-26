@@ -1,11 +1,10 @@
 import datetime
-import io
+import hashlib
 import json
 import os
 import sys
 import time
 
-import asciidoc
 import PySignal
 
 from PyQt6 import QtWidgets, QtGui
@@ -16,7 +15,7 @@ import logging
 
 from editpage import EditPage
 from notegit import NoteGit
-from notehelper import text_2_html
+from notehelper import text_2_html, search_files
 
 
 logger = logging.getLogger(__name__)
@@ -164,7 +163,7 @@ class Notebook(QtWidgets.QMainWindow):
         # search btn
         search_button = QtWidgets.QPushButton("🔎")
         hbox.addWidget(search_button)
-        # search_button.clicked.connect(self.on_click_search)
+        search_button.clicked.connect(self.on_click_search)
         # open git btn
         open_git_button = QtWidgets.QPushButton("Commits")
         hbox.addWidget(open_git_button)
@@ -200,6 +199,29 @@ class Notebook(QtWidgets.QMainWindow):
         geometry = self.data.get("geometry", [300, 250, 900, 600])
         self.setGeometry(geometry[0], geometry[1], geometry[2], geometry[3])
         logger.info("Main window widgets created")
+
+    def on_click_search(self):
+        search_text = self.search_box.currentText().lower()
+        logger.info("search clicked for text {}".format(search_text))
+        if not search_text:
+            return
+        project_path = self.data.get("projects",{}).get(self.project_drop_down.currentText(), {}).get("path", "")
+        if not project_path:
+            logger.warning("no project path found")
+            return
+        search_file_name = hashlib.md5(search_text.encode("utf-8")).hexdigest()
+        search_file_name = os.path.join(project_path, "search-{}.html".format(search_file_name))
+        if not os.path.exists(search_file_name):
+            search_result = search_files(search_text, self.repo.list_all_files(), project_path)
+            html_text = text_2_html(search_result)
+            try:
+                with open(search_file_name, "w") as html_file:
+                    html_file.write(html_text)
+            except FileNotFoundError:
+                logger.error("problem writing new file {}".format(search_file_name))
+                return
+        self.web_page.load(QUrl("file://{}".format(search_file_name)))
+
 
     def load_page(self, file_name=None):
         if not file_name:

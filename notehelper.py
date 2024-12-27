@@ -1,9 +1,8 @@
-import io
-import os.path
-
 import asciidoc
 import logging
+import io
 import jaro
+import os.path
 
 
 logger = logging.getLogger(__name__)

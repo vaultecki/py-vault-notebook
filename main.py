@@ -1,33 +1,32 @@
 import datetime
 import hashlib
 import json
+import logging
 import os
 import sys
 import time
 
 import PySignal
 
-from PyQt6 import QtWidgets, QtGui
-from PyQt6.QtCore import pyqtSlot, QUrl
-from PyQt6.QtWebEngineCore import QWebEnginePage
-from PyQt6.QtWebEngineWidgets import QWebEngineView
-import logging
+import PyQt6
+import PyQt6.QtWebEngineCore
+import PyQt6.QtWebEngineWidgets
 
-from editpage import EditPage
-from notegit import NoteGit
-from notehelper import text_2_html, search_files
+import editpage
+import notegit
+import notehelper
 
 
 logger = logging.getLogger(__name__)
 
 
-class NotebookPage(QWebEnginePage):
+class NotebookPage(PyQt6.QtWebEngineCore.QWebEnginePage):
     """ Custom WebEnginePage to customize how we handle link navigation """
     nav_link_clicked_internal_signal = PySignal.Signal()
     nav_link_clicked_external_signal = PySignal.Signal()
 
     def acceptNavigationRequest(self, url, _type, isMainFrame):
-        if _type == QWebEnginePage.NavigationType.NavigationTypeLinkClicked:
+        if _type == PyQt6.QtWebEngineCore.QWebEnginePage.NavigationType.NavigationTypeLinkClicked:
             logger.debug("url clicked: {}".format(url))
             if not url.isValid() or url.isEmpty():
                 logger.warning("url error")
@@ -42,22 +41,22 @@ class NotebookPage(QWebEnginePage):
         return super().acceptNavigationRequest(url, _type, isMainFrame)
 
 
-class Notebook(QtWidgets.QMainWindow):
+class Notebook(PyQt6.QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         # init later used variables
         self.config_filename = False
         self.data = {}
         # init up elements
-        self.project_drop_down = QtWidgets.QComboBox()
-        self.search_box = QtWidgets.QComboBox()
+        self.project_drop_down = PyQt6.QtWidgets.QComboBox()
+        self.search_box = PyQt6.QtWidgets.QComboBox()
         #
         self.setWindowTitle('Notebook')
         # todo icon ?
         # config
         self.read_config()
         # web
-        self.web_engine_view = QWebEngineView()
+        self.web_engine_view = PyQt6.QtWebEngineWidgets.QWebEngineView()
         self.web_page = NotebookPage(self)
         self.web_page.nav_link_clicked_internal_signal.connect(self.on_internal_url)
         self.web_page.nav_link_clicked_external_signal.connect(self.on_external_url)
@@ -69,19 +68,19 @@ class Notebook(QtWidgets.QMainWindow):
         if not self.data.get("last_project"):
             self.data.update({"last_project": list(self.data.get("projects").keys())[0]})
         project_name = self.data.get("last_project", self.project_drop_down.currentText())
-        self.repo = NoteGit(self.data.get("projects", {}).get(project_name, {}).get("path", ""))
+        self.repo = notegit.NoteGit(self.data.get("projects", {}).get(project_name, {}).get("path", ""))
         self.load_page(self.data.get("projects", {}).get(project_name, {}).get("last_ascii_file", ""))
-        self.edit_page_window = EditPage(project_data=self.data.get("projects", {}).get(project_name, {}), project_name=project_name,
+        self.edit_page_window = editpage.EditPage(project_data=self.data.get("projects", {}).get(project_name, {}), project_name=project_name,
                                          file_name=self.data.get("projects", {}).get(project_name, {}).get("last_ascii_file", ""))
 
     def on_external_url(self, url):
-        reply = QtWidgets.QMessageBox.question(self, "Proceed",
+        reply = PyQt6.QtWidgets.QMessageBox.question(self, "Proceed",
                     "Are you sure you want to open the url '{}' in an external browser".format(url),
-                    QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No,
-                    QtWidgets.QMessageBox.StandardButton.No)
-        if reply == QtWidgets.QMessageBox.StandardButton.Yes:
+                    PyQt6.QtWidgets.QMessageBox.StandardButton.Yes | PyQt6.QtWidgets.QMessageBox.StandardButton.No,
+                    PyQt6.QtWidgets.QMessageBox.StandardButton.No)
+        if reply == PyQt6.QtWidgets.QMessageBox.StandardButton.Yes:
             logger.debug("open link in external browser")
-            QtGui.QDesktopServices.openUrl(url)
+            PyQt6.QtGui.QDesktopServices.openUrl(url)
         return
 
     def read_config(self):
@@ -108,11 +107,11 @@ class Notebook(QtWidgets.QMainWindow):
 
     def create_new_project(self):
         logger.debug("create new project")
-        project_path = QtWidgets.QFileDialog.getExistingDirectory(self, "Select Directory")
+        project_path = PyQt6.QtWidgets.QFileDialog.getExistingDirectory(self, "Select Directory")
         if project_path:
             project_name = os.path.split(project_path)[1]
             if self.data.get("projects", {}).get(project_name, False):
-                QtWidgets.QMessageBox.information(self, "Add Project", "Das Projekt is bereits in der Liste")
+                PyQt6.QtWidgets.QMessageBox.information(self, "Add Project", "Das Projekt is bereits in der Liste")
                 logger.error("Das Projekt is bereits in der Liste")
                 return
             else:
@@ -132,7 +131,7 @@ class Notebook(QtWidgets.QMainWindow):
             self.data.update({"projects": projects})
             self.data.update({"last_project": project_name})
             self.project_drop_down.addItem(project_name)
-            self.repo = NoteGit(project_path)
+            self.repo = notegit.NoteGit(project_path)
             self.repo.add_file(self.data.get("index_file", "index.asciidoc"))
             self.load_page()
 
@@ -140,13 +139,13 @@ class Notebook(QtWidgets.QMainWindow):
         new_project_name = self.project_drop_down.currentText()
         logger.info("dropdown project change to {}".format(new_project_name))
         self.data.update({"last_project": new_project_name})
-        self.repo = NoteGit(self.data.get("projects", {}).get(new_project_name, {}).get("path", None))
+        self.repo = notegit.NoteGit(self.data.get("projects", {}).get(new_project_name, {}).get("path", None))
         self.load_page()
 
     def init_ui(self):
-        vbox = QtWidgets.QVBoxLayout()
-        hbox = QtWidgets.QHBoxLayout()
-        hbox2 = QtWidgets.QHBoxLayout()
+        vbox = PyQt6.QtWidgets.QVBoxLayout()
+        hbox = PyQt6.QtWidgets.QHBoxLayout()
+        hbox2 = PyQt6.QtWidgets.QHBoxLayout()
         # projects from conf
         self.project_drop_down.setMinimumWidth(130)
         hbox.addWidget(self.project_drop_down)
@@ -159,34 +158,37 @@ class Notebook(QtWidgets.QMainWindow):
         self.project_drop_down.currentTextChanged.connect(self.on_project_change)
         # search box
         self.search_box.setEditable(True)
+        self.search_box.setInsertPolicy(PyQt6.QtWidgets.QComboBox.InsertPolicy.NoInsert)
+        #shortcut = QtGui.QShortcut(QtGui.QKeySequence(PyQt6.QtCore.Qt.Key.Key_Return),
+        #                           self.search_box, activate=on_click_search)
         hbox.addWidget(self.search_box)
         self.search_box.currentTextChanged.connect(self.on_search_local)
         # search btn
-        search_button = QtWidgets.QPushButton("🔎")
+        search_button = PyQt6.QtWidgets.QPushButton("🔎")
         hbox.addWidget(search_button)
         search_button.clicked.connect(self.on_click_search)
         # open git btn
-        open_git_button = QtWidgets.QPushButton("Commits")
+        open_git_button = PyQt6.QtWidgets.QPushButton("Commits")
         hbox.addWidget(open_git_button)
         # open_git_button.clicked.connect(self.open_git)
         # add btn
-        add_project_button = QtWidgets.QPushButton('Add Project', self)
+        add_project_button = PyQt6.QtWidgets.QPushButton('Add Project', self)
         hbox2.addWidget(add_project_button)
         add_project_button.clicked.connect(self.create_new_project)
         # new btn
-        new_project_button = QtWidgets.QPushButton('New Project', self)
+        new_project_button = PyQt6.QtWidgets.QPushButton('New Project', self)
         hbox2.addWidget(new_project_button)
         new_project_button.clicked.connect(self.create_new_project)
         # export btn
-        export_button = QtWidgets.QPushButton("Export", self)
+        export_button = PyQt6.QtWidgets.QPushButton("Export", self)
         hbox2.addWidget(export_button)
         export_button.clicked.connect(self.on_export_pdf)
         # edit btn
-        edit_page_button = QtWidgets.QPushButton("Edit Page", self)
+        edit_page_button = PyQt6.QtWidgets.QPushButton("Edit Page", self)
         hbox2.addWidget(edit_page_button)
         edit_page_button.clicked.connect(self.on_click_edit_page)
         # update page
-        page_back_btn = QtWidgets.QPushButton("Back", self)
+        page_back_btn = PyQt6.QtWidgets.QPushButton("Back", self)
         hbox2.addWidget(page_back_btn)
         page_back_btn.clicked.connect(self.on_back_btn)
         # settings
@@ -194,7 +196,7 @@ class Notebook(QtWidgets.QMainWindow):
         vbox.addLayout(hbox2)
         #vbox.addLayout(breadcrumb_widget)
         vbox.addWidget(self.web_engine_view)
-        main_widget = QtWidgets.QWidget()
+        main_widget = PyQt6.QtWidgets.QWidget()
         main_widget.setLayout(vbox)
         self.setCentralWidget(main_widget)
         geometry = self.data.get("geometry", [300, 250, 900, 600])
@@ -204,7 +206,6 @@ class Notebook(QtWidgets.QMainWindow):
     def on_search_local(self):
         search_text = self.search_box.currentText()
         self.web_page.findText(search_text)
-        print(self.search_box.findText(search_text))
 
     def on_click_search(self):
         search_text = self.search_box.currentText().lower()
@@ -220,15 +221,15 @@ class Notebook(QtWidgets.QMainWindow):
         search_file_name = hashlib.md5(search_text.encode("utf-8")).hexdigest()
         search_file_name = os.path.join(project_path, "search-{}.html".format(search_file_name))
         if not os.path.exists(search_file_name):
-            search_result = search_files(search_text, self.repo.list_all_files(), project_path)
-            html_text = text_2_html(search_result)
+            search_result = notehelper.search_files(search_text, self.repo.list_all_files(), project_path)
+            html_text = notehelper.text_2_html(search_result)
             try:
                 with open(search_file_name, "w") as html_file:
                     html_file.write(html_text)
             except FileNotFoundError:
                 logger.error("problem writing new file {}".format(search_file_name))
                 return
-        self.web_page.load(QUrl("file://{}".format(search_file_name)))
+        self.web_page.load(PyQt6.QtCore.QUrl("file://{}".format(search_file_name)))
 
 
     def load_page(self, file_name=None):
@@ -242,14 +243,14 @@ class Notebook(QtWidgets.QMainWindow):
         if file_name.split(".")[-1].lower() in ["htm", "html", "txt", "jpg", "png", "jpeg"]:
             chrome_file_name = os.path.join(project.get("path"), file_name)
             logger.info("open other files in webview: {}".format(chrome_file_name))
-            self.web_page.load(QUrl("file://{}".format(chrome_file_name)))
+            self.web_page.load(PyQt6.QtCore.QUrl("file://{}".format(chrome_file_name)))
             return
         #
         # open pdf in extern
         if file_name.split(".")[-1].lower() in ["pdf"]:
             pdf_file_name = os.path.join(project.get("path"), file_name)
             logger.info("open pdf in extern: {}".format(pdf_file_name))
-            self.on_external_url(QUrl("file://{}".format(pdf_file_name)))
+            self.on_external_url(PyQt6.QtCore.QUrl("file://{}".format(pdf_file_name)))
             return
         #
         # dont open rest
@@ -274,7 +275,7 @@ class Notebook(QtWidgets.QMainWindow):
             except FileNotFoundError:
                 logger.error("problem writing new file {}".format(ascii_file_name))
                 return
-        html_text = text_2_html(text_in)
+        html_text = notehelper.text_2_html(text_in)
         html_file_name = "{}.html".format(ascii_file_name)
         try:
             with open(html_file_name, "w") as html_file:
@@ -282,7 +283,7 @@ class Notebook(QtWidgets.QMainWindow):
         except FileNotFoundError:
             logger.error("problem writing new file {}".format(html_file_name))
             return
-        self.web_page.load(QUrl("file://{}".format(html_file_name)))
+        self.web_page.load(PyQt6.QtCore.QUrl("file://{}".format(html_file_name)))
 
     def on_file_edited(self, file_name):
         logger.info("git update {}".format(file_name))
@@ -317,7 +318,7 @@ class Notebook(QtWidgets.QMainWindow):
                 self.edit_page_window.project_new_file.disconnect(self.on_upload_file)
                 self.edit_page_window.project_data_changed.disconnect(self.project_data_update)
                 self.edit_page_window.geometry_update.disconnect(self.edit_page_window_geometry)
-                self.edit_page_window = EditPage(project_data=project, project_name=project_name, file_name=file_name)
+                self.edit_page_window = editpage.EditPage(project_data=project, project_name=project_name, file_name=file_name)
                 geometry = self.data.get("edit_window_geometry", [300, 300, 600, 600])
                 self.edit_page_window.set_geometry(geometry)
                 self.edit_page_window.show()
@@ -359,7 +360,7 @@ class Notebook(QtWidgets.QMainWindow):
 
     def on_back_btn(self):
         logger.info("hit back btn")
-        self.web_page.triggerAction(QWebEnginePage.WebAction.Back)
+        self.web_page.triggerAction(PyQt6.QtWebEngineCore.QWebEnginePage.WebAction.Back)
 
     def on_export_pdf(self):
         logger.info("hit export")
@@ -373,7 +374,7 @@ class Notebook(QtWidgets.QMainWindow):
         date_str = datetime.datetime.now().strftime("%Y-%m-%d")
         file_name = "{}_{}.pdf".format(date_str, file_name)
         file_name = os.path.join(export_dir, file_name)
-        pdf_file = QtWidgets.QFileDialog.getSaveFileName(self, "Save PDF file", file_name, "PDF (*.pdf)")
+        pdf_file = PyQt6.QtWidgets.QFileDialog.getSaveFileName(self, "Save PDF file", file_name, "PDF (*.pdf)")
         if pdf_file:
             pdf_file = pdf_file[0]
             if pdf_file:
@@ -385,7 +386,7 @@ class Notebook(QtWidgets.QMainWindow):
         else:
             logger.warning("could not export")
 
-    @pyqtSlot(QtGui.QCloseEvent)
+    @PyQt6.QtCore.pyqtSlot(PyQt6.QtGui.QCloseEvent)
     def closeEvent(self, event):
         geometry = (self.frameGeometry().x(), self.frameGeometry().y(), self.frameGeometry().width(), self.frameGeometry().height())
         self.data.update({"geometry": geometry})
@@ -400,7 +401,7 @@ class Notebook(QtWidgets.QMainWindow):
 
 class NotebookApp:
     def __init__(self):
-        self.app = QtWidgets.QApplication(sys.argv)
+        self.app = PyQt6.QtWidgets.QApplication(sys.argv)
         self.notes = Notebook()
 
     def run(self):

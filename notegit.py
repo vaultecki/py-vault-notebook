@@ -1,8 +1,7 @@
-import os
-import logging
-import shutil
-
 import git
+import logging
+import os
+import shutil
 
 
 logger = logging.getLogger(__name__)

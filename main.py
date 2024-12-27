@@ -160,6 +160,7 @@ class Notebook(QtWidgets.QMainWindow):
         # search box
         self.search_box.setEditable(True)
         hbox.addWidget(self.search_box)
+        self.search_box.currentTextChanged.connect(self.on_search_local)
         # search btn
         search_button = QtWidgets.QPushButton("🔎")
         hbox.addWidget(search_button)
@@ -200,6 +201,11 @@ class Notebook(QtWidgets.QMainWindow):
         self.setGeometry(geometry[0], geometry[1], geometry[2], geometry[3])
         logger.info("Main window widgets created")
 
+    def on_search_local(self):
+        search_text = self.search_box.currentText()
+        self.web_page.findText(search_text)
+        print(self.search_box.findText(search_text))
+
     def on_click_search(self):
         search_text = self.search_box.currentText().lower()
         logger.info("search clicked for text {}".format(search_text))
@@ -209,6 +215,8 @@ class Notebook(QtWidgets.QMainWindow):
         if not project_path:
             logger.warning("no project path found")
             return
+        if self.search_box.findText(search_text) < 0:
+            self.search_box.addItem(search_text)
         search_file_name = hashlib.md5(search_text.encode("utf-8")).hexdigest()
         search_file_name = os.path.join(project_path, "search-{}.html".format(search_file_name))
         if not os.path.exists(search_file_name):

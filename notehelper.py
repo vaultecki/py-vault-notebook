@@ -21,7 +21,7 @@ def search_files(search_text, files, project_path, cut_off=0.8):
     jaro_results = []
     for file in files:
         jaro_file_metric = jaro.jaro_winkler_metric(file, search_text)
-        if jaro_file_metric >= cut_off or search_text in file and file not in jaro_filenames_result:
+        if jaro_file_metric >= cut_off or search_text in file.lower() and file not in jaro_filenames_result:
             jaro_filenames_result.append(file)
         file_path = os.path.join(project_path, file)
         try:
@@ -31,7 +31,7 @@ def search_files(search_text, files, project_path, cut_off=0.8):
             logger.error("error {} searching file {}".format(e, file))
             file_text = ""
         jaro_metric = jaro.jaro_winkler_metric(search_text, file_text)
-        if jaro_metric >= cut_off or search_text in file_text and file not in jaro_filenames_result:
+        if jaro_metric >= cut_off or search_text in file_text.lower() and file not in jaro_filenames_result:
             jaro_results.append(file)
     logger.info("creating result page")
     result_text = "== result search for \"{}\"".format(search_text)

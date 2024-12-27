@@ -105,8 +105,12 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
         self.data = data
 
     def write_config(self):
-        with open(self.config_filename, "w") as config_file:
-            json.dump(self.data, config_file, indent=4)
+        logger.info("writing logs")
+        try:
+            with open(self.config_filename, "w") as config_file:
+                json.dump(self.data, config_file, indent=4)
+        except Exception as e:
+            logger.error("writing config to file error: {}".format(e))
 
     def create_new_project(self):
         logger.debug("create new project")
@@ -125,7 +129,7 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
                     logger.info("filepath {} found, opening index {}".format(filepath, index_file))
                 else:
                     with open(filepath, "w") as text_file:
-                        text_str = ("== new project {}\n\nasciidoc format\nlink:https://docs.asciidoctor.org/asciidoc/latest/syntax-quick-reference/[link quick reference guide asciidoc]\n").format(project_name)
+                        text_str = "== new project {}\n\nasciidoc format\nlink:https://docs.asciidoctor.org/asciidoc/latest/syntax-quick-reference/[link quick reference guide asciidoc]\n".format(project_name)
                         text_file.write(text_str)
                         logger.error("new index file created {}".format(filepath))
             projects = self.data.get("projects", {})
@@ -162,8 +166,8 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
         # search box
         self.search_box.setEditable(True)
         self.search_box.setInsertPolicy(PyQt6.QtWidgets.QComboBox.InsertPolicy.NoInsert)
-        #shortcut = PyQt6.QtGui.QShortcut(QtGui.QKeySequence(PyQt6.QtCore.Qt.Key.Key_Return),
-        #                           self.search_box, activate=on_click_search)
+        # todo find correct parent for shortcut
+        # shortcut = PyQt6.QtGui.QShortcut(PyQt6.QtGui.QKeySequence(PyQt6.QtCore.Qt.Key.Key_Return), self.search_box, activated=self.on_click_search)
         hbox.addWidget(self.search_box)
         self.search_box.currentTextChanged.connect(self.on_search_local)
         # search btn

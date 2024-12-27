@@ -9,6 +9,9 @@ import time
 import PySignal
 
 import PyQt6
+import PyQt6.QtCore
+import PyQt6.QtGui
+import PyQt6.QtWidgets
 import PyQt6.QtWebEngineCore
 import PyQt6.QtWebEngineWidgets
 
@@ -159,7 +162,7 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
         # search box
         self.search_box.setEditable(True)
         self.search_box.setInsertPolicy(PyQt6.QtWidgets.QComboBox.InsertPolicy.NoInsert)
-        #shortcut = QtGui.QShortcut(QtGui.QKeySequence(PyQt6.QtCore.Qt.Key.Key_Return),
+        #shortcut = PyQt6.QtGui.QShortcut(QtGui.QKeySequence(PyQt6.QtCore.Qt.Key.Key_Return),
         #                           self.search_box, activate=on_click_search)
         hbox.addWidget(self.search_box)
         self.search_box.currentTextChanged.connect(self.on_search_local)

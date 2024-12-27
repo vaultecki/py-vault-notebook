@@ -54,6 +54,9 @@ class EditPage(PyQt6.QtWidgets.QWidget):
         # loadings
         self.load_content()
         logger.info("Edit window initialized")
+        # add shortcuts
+        PyQt6.QtGui.QShortcut(PyQt6.QtGui.QKeySequence("Ctrl+S"), self).activated.connect(self.on_save_changes)
+        PyQt6.QtGui.QShortcut(PyQt6.QtGui.QKeySequence("ESC"), self).activated.connect(self.close)
 
     def set_geometry(self, geometry):
         logger.info("set window size")
@@ -260,7 +263,7 @@ if __name__ == "__main__":
     logger.info("moin")
 
     app = PyQt6.QtWidgets.QApplication(sys.argv)
-    ex = EditPage({"path": "/home/ecki/temp/notebooks/test1", "create_date": 1734897219.1147738,
+    ex = EditPage({"path": "/home/ecki/temp/notebooks/private", "create_date": 1734897219.1147738,
             "last_ascii_file": "index.asciidoc"}, "test1", "index.asciidoc")
     ex.show()
     sys.exit(app.exec())

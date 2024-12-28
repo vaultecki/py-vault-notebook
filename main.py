@@ -178,14 +178,10 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
         open_git_button = PyQt6.QtWidgets.QPushButton("Commits")
         hbox.addWidget(open_git_button)
         # open_git_button.clicked.connect(self.open_git)
-        # add btn
-        add_project_button = PyQt6.QtWidgets.QPushButton('Add Project', self)
+        # add/ new btn
+        add_project_button = PyQt6.QtWidgets.QPushButton('Add/ New Project', self)
         hbox2.addWidget(add_project_button)
         add_project_button.clicked.connect(self.create_new_project)
-        # new btn
-        new_project_button = PyQt6.QtWidgets.QPushButton('New Project', self)
-        hbox2.addWidget(new_project_button)
-        new_project_button.clicked.connect(self.create_new_project)
         # export btn
         export_button = PyQt6.QtWidgets.QPushButton("Export", self)
         hbox2.addWidget(export_button)

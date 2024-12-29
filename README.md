@@ -13,5 +13,5 @@ TODO List:
 Motivation:
 - wanted something like a local docu wiki
     - use a simple plain text markup language
-    -link to files on system and to web
+    - link to files on system and to web
 - should use git for version control

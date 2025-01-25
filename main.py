@@ -3,6 +3,7 @@ import hashlib
 import json
 import logging
 import os
+import pathlib
 import sys
 import time
 
@@ -53,7 +54,6 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
         # init up elements
         self.project_drop_down = PyQt6.QtWidgets.QComboBox()
         self.search_box = PyQt6.QtWidgets.QComboBox()
-        #
         self.setWindowTitle('Notebook')
         # todo icon ?
         # config
@@ -71,7 +71,11 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
         if not self.data.get("last_project"):
             self.data.update({"last_project": list(self.data.get("projects").keys())[0]})
         project_name = self.data.get("last_project", self.project_drop_down.currentText())
-        self.repo = notegit.NoteGit(self.data.get("projects", {}).get(project_name, {}).get("path", ""))
+        try:
+            self.repo = notegit.NoteGit(self.data.get("projects", {}).get(project_name, {}).get("path", ""))
+        except ImportError:
+            PyQt6.QtWidgets.QMessageBox("Error Project {} with Path {} not fould. Project removed from config".format(project_name, self.data.get("projects", {}).get(project_name, {}).get("path", "")))
+            self.data.get("projects", {}).pop(project_name, None)
         self.load_page(self.data.get("projects", {}).get(project_name, {}).get("last_ascii_file", ""))
         self.edit_page_window = editpage.EditPage(project_data=self.data.get("projects", {}).get(project_name, {}), project_name=project_name,
                                          file_name=self.data.get("projects", {}).get(project_name, {}).get("last_ascii_file", ""))
@@ -82,7 +86,7 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
                     PyQt6.QtWidgets.QMessageBox.StandardButton.Yes | PyQt6.QtWidgets.QMessageBox.StandardButton.No,
                     PyQt6.QtWidgets.QMessageBox.StandardButton.No)
         if reply == PyQt6.QtWidgets.QMessageBox.StandardButton.Yes:
-            logger.debug("open link in external browser")
+            logger.debug("open link {} in external browser".format(url))
             PyQt6.QtGui.QDesktopServices.openUrl(url)
         return
 
@@ -197,7 +201,7 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
         # settings
         vbox.addLayout(hbox)
         vbox.addLayout(hbox2)
-        #vbox.addLayout(breadcrumb_widget)
+        # vbox.addLayout(breadcrumb_widget)
         vbox.addWidget(self.web_engine_view)
         main_widget = PyQt6.QtWidgets.QWidget()
         main_widget.setLayout(vbox)
@@ -223,6 +227,7 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
             self.search_box.addItem(search_text)
         search_file_name = hashlib.md5(search_text.encode("utf-8")).hexdigest()
         search_file_name = os.path.join(project_path, "search-{}.html".format(search_file_name))
+        search_file_name = os.path.normpath(search_file_name)
         if not os.path.exists(search_file_name):
             search_result = notehelper.search_files(search_text, self.repo.list_all_files(), project_path)
             html_text = notehelper.text_2_html(search_result)
@@ -232,8 +237,7 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
             except FileNotFoundError:
                 logger.error("problem writing new file {}".format(search_file_name))
                 return
-        self.web_page.load(PyQt6.QtCore.QUrl("file://{}".format(search_file_name)))
-
+        self.web_page.load(PyQt6.QtCore.QUrl(pathlib.Path(search_file_name).absolute().as_uri()))
 
     def load_page(self, file_name=None):
         if not file_name:
@@ -245,21 +249,24 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
         # open files in webview
         if file_name.split(".")[-1].lower() in ["htm", "html", "txt", "jpg", "png", "jpeg"]:
             chrome_file_name = os.path.join(project.get("path"), file_name)
+            chrome_file_name = os.path.normpath(chrome_file_name)
             logger.info("open other files in webview: {}".format(chrome_file_name))
-            self.web_page.load(PyQt6.QtCore.QUrl("file://{}".format(chrome_file_name)))
+            self.web_page.load(PyQt6.QtCore.QUrl(pathlib.Path(chrome_file_name).absolute().as_uri()))
             return
         #
         # open pdf in extern
-        if file_name.split(".")[-1].lower() in ["pdf"]:
+        if file_name.split(".")[-1].lower() in ["pdf", "ppt", "doc", "docx"]:
             pdf_file_name = os.path.join(project.get("path"), file_name)
+            # pdf_file_name = os.path.normpath(pdf_file_name)
             logger.info("open pdf in extern: {}".format(pdf_file_name))
-            self.on_external_url(PyQt6.QtCore.QUrl("file://{}".format(pdf_file_name)))
+            self.on_external_url(PyQt6.QtCore.QUrl(pathlib.Path(pdf_file_name).absolute().as_uri()))
             return
         #
         # dont open rest
         if file_name.split(".")[-1].lower() not in ["adoc", "asciidoc"]:
             return
         ascii_file_name = os.path.join(project.get("path"), file_name)
+        ascii_file_name = os.path.normpath(ascii_file_name)
         logger.info("Loading page {}".format(ascii_file_name))
         try:
             with open(ascii_file_name, "r") as ascii_file:
@@ -286,7 +293,7 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
         except FileNotFoundError:
             logger.error("problem writing new file {}".format(html_file_name))
             return
-        self.web_page.load(PyQt6.QtCore.QUrl("file://{}".format(html_file_name)))
+        self.web_page.load(PyQt6.QtCore.QUrl(pathlib.Path(html_file_name).absolute().as_uri()))
 
     def on_file_edited(self, file_name):
         logger.info("git update {}".format(file_name))
@@ -305,11 +312,11 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
             file_name = file_name[:-5]
         path_project = self.data.get("projects", {}).get(self.project_drop_down.currentText(), {}).get("path", "")
         path_url_str = str(os.path.split(self.web_page.url().path())[0])
-        if path_url_str.startswith(path_project):
+        if path_url_str.startswith(str(pathlib.Path(path_project).absolute().as_uri())[7:]):
             logger.info("url starts with {}".format(path_project))
-            if path_url_str > path_project:
+            if path_url_str > str(pathlib.Path(path_project).absolute().as_uri())[7:]:
                 logger.info("recreate relative project path")
-                cut_length = len(path_project) + 1
+                cut_length = len(str(pathlib.Path(path_project).absolute().as_uri())[7:]) + 1
                 if path_project.endswith("/"):
                     cut_length = cut_length - 1
                 prefix = path_url_str[cut_length:]
@@ -331,9 +338,13 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
                 self.edit_page_window.geometry_update.connect(self.edit_page_window_geometry)
                 self.edit_page_window.project_data_changed.connect(self.project_data_update)
         else:
-            logger.error("path {} <-mismatch-> url {}".format(path_project, path_url_str))
+            logger.error("path {} <-mismatch-> url {}".format(str(pathlib.Path(path_project).absolute().as_uri())[7:], path_url_str))
 
     def edit_page_window_geometry(self, geometry):
+        # print(geometry)
+        if os.name in ["nt", "windows"]:
+            geometry = (geometry[0], geometry[1]+31, geometry[2], geometry[3]-31)
+        # print(geometry)
         self.data.update({"edit_window_geometry": geometry})
 
     def project_data_update(self, project_data):
@@ -347,11 +358,11 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
         path = url.path()
         path_project = self.data.get("projects", {}).get(self.project_drop_down.currentText(), {}).get("path", "")
         path_url_str = str(os.path.split(path)[0])
-        if path_url_str.startswith(path_project):
+        if path_url_str.startswith(str(pathlib.Path(path_project).absolute().as_uri())[7:]):
             logger.info("starts with {}".format(path_project))
-            if path_url_str > path_project:
+            if path_url_str > str(pathlib.Path(path_project).absolute().as_uri())[7:]:
                 logger.info("recreate relative project path")
-                cut_length = len(path_project)+1
+                cut_length = len(str(pathlib.Path(path_project).absolute().as_uri())[7:])+1
                 if path_project.endswith("/"):
                     cut_length = cut_length -1
                 prefix = path_url_str[cut_length:]
@@ -359,7 +370,7 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
             logger.info("load page")
             self.load_page(file_name)
         else:
-            logger.error("path {} <-mismatch-> url {}".format(path_project, path_url_str))
+            logger.error("path {} <-mismatch-> url {}".format(str(pathlib.Path(path_project).absolute().as_uri())[7:], path_url_str))
 
     def on_back_btn(self):
         logger.info("hit back btn")
@@ -391,7 +402,10 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
 
     @PyQt6.QtCore.pyqtSlot(PyQt6.QtGui.QCloseEvent)
     def closeEvent(self, event):
-        geometry = (self.frameGeometry().x(), self.frameGeometry().y(), self.frameGeometry().width(), self.frameGeometry().height())
+        if os.name in ["nt", "windows"]:
+            geometry = (self.frameGeometry().x(), self.frameGeometry().y()+31, self.frameGeometry().width(), self.frameGeometry().height()-31)
+        else:
+            geometry = (self.frameGeometry().x(), self.frameGeometry().y(), self.frameGeometry().width(), self.frameGeometry().height())
         self.data.update({"geometry": geometry})
         logger.info("Closing the notebook window")
         self.write_config()

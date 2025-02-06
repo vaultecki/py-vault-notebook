@@ -101,7 +101,7 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
         self.config_filename = os.path.join(home_dir, "config.json")
         logger.debug("open {}".format(self.config_filename))
         try:
-            with open(self.config_filename, "r") as config_file:
+            with open(self.config_filename, "r", encoding="utf-8") as config_file:
                 data = json.load(config_file)
         except IOError as err:
             logger.warning("Oops, error: {}".format(err))
@@ -111,7 +111,7 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
     def write_config(self):
         logger.info("writing logs")
         try:
-            with open(self.config_filename, "w") as config_file:
+            with open(self.config_filename, "w", encoding="utf-8") as config_file:
                 json.dump(self.data, config_file, indent=4)
         except Exception as e:
             logger.error("writing config to file error: {}".format(e))
@@ -132,7 +132,7 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
                 if os.path.exists(filepath):
                     logger.info("filepath {} found, opening index {}".format(filepath, index_file))
                 else:
-                    with open(filepath, "w") as text_file:
+                    with open(filepath, "w", encoding="utf-8") as text_file:
                         text_str = "== new project {}\n\nasciidoc format\nlink:https://docs.asciidoctor.org/asciidoc/latest/syntax-quick-reference/[link quick reference guide asciidoc]\n".format(project_name)
                         text_file.write(text_str)
                         logger.error("new index file created {}".format(filepath))
@@ -232,7 +232,7 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
             search_result = notehelper.search_files(search_text, self.repo.list_all_files(), project_path)
             html_text = notehelper.text_2_html(search_result)
             try:
-                with open(search_file_name, "w") as html_file:
+                with open(search_file_name, "w", encoding="utf-8") as html_file:
                     html_file.write(html_text)
             except FileNotFoundError:
                 logger.error("problem writing new file {}".format(search_file_name))
@@ -269,7 +269,7 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
         ascii_file_name = os.path.normpath(ascii_file_name)
         logger.info("Loading page {}".format(ascii_file_name))
         try:
-            with open(ascii_file_name, "r") as ascii_file:
+            with open(ascii_file_name, "r", encoding="utf-8") as ascii_file:
                 text_in = ascii_file.read()
         except FileNotFoundError:
             logger.warning("file {} not found".format(ascii_file_name))
@@ -279,7 +279,7 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
             if os.path.isdir(os.path.split(ascii_file_name)[0]):
                 logger.error("path {} not a directory".format(os.path.split(ascii_file_name)[0]))
             try:
-                with open(ascii_file_name, "w") as ascii_file:
+                with open(ascii_file_name, "w", encoding="utf-8") as ascii_file:
                     ascii_file.write(text_in)
                     self.repo.add_file(file_name)
             except FileNotFoundError:
@@ -288,7 +288,7 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
         html_text = notehelper.text_2_html(text_in)
         html_file_name = "{}.html".format(ascii_file_name)
         try:
-            with open(html_file_name, "w") as html_file:
+            with open(html_file_name, "w", encoding="utf-8") as html_file:
                 html_file.write(html_text)
         except FileNotFoundError:
             logger.error("problem writing new file {}".format(html_file_name))

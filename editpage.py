@@ -38,6 +38,7 @@ class EditPage(PyQt6.QtWidgets.QWidget):
         self.text_field = PyQt6.QtWidgets.QPlainTextEdit()
         main_layout.addWidget(self.text_field)
         main_layout.addWidget(self.init_format_field())
+        self.setWindowTitle('Notedit {}'.format(file_name))
 
         # settings
         self.setLayout(main_layout)
@@ -203,7 +204,7 @@ class EditPage(PyQt6.QtWidgets.QWidget):
             self.on_discard_changes()
             return
         logger.debug("new html_text would be: {}".format(html_text))
-        with open(text_file_path, "w") as text_file:
+        with open(text_file_path, "w", encoding="utf-8") as text_file:
             text_file.writelines(text)
         self.changed = False
         self.ascii_file_changed.emit(self.file_name)
@@ -216,7 +217,7 @@ class EditPage(PyQt6.QtWidgets.QWidget):
         self.disconnect_text_field_signals()
 
         self.text_field.clear()
-        with open(text_file_path, "r") as text_file:
+        with open(text_file_path, "r", encoding="utf-8") as text_file:
             text = text_file.readlines()
         for line in text:
             self.text_field.appendPlainText(line.strip())

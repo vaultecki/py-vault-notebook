@@ -153,16 +153,7 @@ class NoteGit(PyQt6.QtCore.QObject):
         self.trigger_push.emit(self.project_path)  #
 
     def list_all_files(self):
-        # ... (Diese Methode bleibt unverändert, aber Ihr Refactoring-Vorschlag
-        # von 'ls-files' statt 'iter_commits' ist hier immer noch SEHR zu empfehlen) ...
-        commits = self.repo.iter_commits(rev=self.repo.head.reference)  #
-        files = []
-        for commit in commits:
-            git_files = self.repo.git.show("--pretty=", "--name-only", commit)
-            git_files = git_files.split("\n")
-            for file in git_files:
-                if file not in files:
-                    files.append(file)
+        files = self.repo.git.ls_files().split('\n')
         return files
 
     def cleanup(self):

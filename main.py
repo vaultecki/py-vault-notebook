@@ -307,21 +307,25 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
         logger.info("edit clicked")
         project_name = self.project_drop_down.currentText()
         project = self.data.get("projects").get(project_name)
-        file_name = self.web_page.url().fileName()
-        if file_name.endswith(".html"):
-            file_name = file_name[:-5]
-        path_project = self.data.get("projects", {}).get(self.project_drop_down.currentText(), {}).get("path", "")
-        path_url_str = str(os.path.split(self.web_page.url().path())[0])
-        if path_url_str.startswith(str(pathlib.Path(path_project).absolute().as_uri())[7:]):
-            logger.info("url starts with {}".format(path_project))
-            if path_url_str > str(pathlib.Path(path_project).absolute().as_uri())[7:]:
-                logger.info("recreate relative project path")
-                cut_length = len(str(pathlib.Path(path_project).absolute().as_uri())[7:]) + 1
-                if path_project.endswith("/"):
-                    cut_length = cut_length - 1
-                prefix = path_url_str[cut_length:]
-                file_name = "{}/{}".format(prefix, file_name)
-            if file_name.split(".")[-1] in ["adoc", "asciidoc"]:
+
+        try:
+            project_path_str = project.get("path", "")
+            if not project_path_str:
+                logger.error("No project path configured.")
+                return
+
+            project_path = pathlib.Path(project_path_str).absolute()
+            current_url = self.web_page.url()
+            url_path = pathlib.Path(current_url.toLocalFile())
+
+            if url_path.suffix == ".html":
+                original_name = url_path.name[:-5]
+                url_path = url_path.with_name(original_name)
+
+            relative_path = url_path.relative_to(project_path)
+            file_name = str(relative_path)
+
+            if url_path.suffix.lower() in [".adoc", ".asciidoc"]:
                 logger.info("edit page {}".format(file_name))
                 self.edit_page_window.ascii_file_changed.disconnect(self.load_page)
                 self.edit_page_window.ascii_file_changed.disconnect(self.on_file_edited)
@@ -337,8 +341,14 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
                 self.edit_page_window.project_new_file.connect(self.on_upload_file)
                 self.edit_page_window.geometry_update.connect(self.edit_page_window_geometry)
                 self.edit_page_window.project_data_changed.connect(self.project_data_update)
-        else:
-            logger.error("path {} <-mismatch-> url {}".format(str(pathlib.Path(path_project).absolute().as_uri())[7:], path_url_str))
+
+            else:
+                logger.warning(f"Cannot edit file type: {url_path.suffix}")
+
+        except ValueError:
+            logger.error(f"Path {url_path} is not inside project path {project_path}")
+        except Exception as e:
+            logger.error(f"Error in on_click_edit_page: {e}")
 
     def edit_page_window_geometry(self, geometry):
         # print(geometry)
@@ -354,23 +364,24 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
 
     def on_internal_url(self, url):
         logger.info("open new local url {}".format(url))
-        file_name = url.fileName()
-        path = url.path()
-        path_project = self.data.get("projects", {}).get(self.project_drop_down.currentText(), {}).get("path", "")
-        path_url_str = str(os.path.split(path)[0])
-        if path_url_str.startswith(str(pathlib.Path(path_project).absolute().as_uri())[7:]):
-            logger.info("starts with {}".format(path_project))
-            if path_url_str > str(pathlib.Path(path_project).absolute().as_uri())[7:]:
-                logger.info("recreate relative project path")
-                cut_length = len(str(pathlib.Path(path_project).absolute().as_uri())[7:])+1
-                if path_project.endswith("/"):
-                    cut_length = cut_length -1
-                prefix = path_url_str[cut_length:]
-                file_name = "{}/{}".format(prefix, file_name)
-            logger.info("load page")
+        try:
+            project_path_str = self.data.get("projects", {}).get(self.project_drop_down.currentText(), {}).get("path",
+                                                                                                               "")
+            if not project_path_str:
+                logger.error("No project path configured.")
+                return
+
+            project_path = pathlib.Path(project_path_str).absolute()
+            url_path = pathlib.Path(url.toLocalFile())
+            relative_path = url_path.relative_to(project_path)
+
+            file_name = str(relative_path)
+            logger.info(f"Load relative page: {file_name}")
             self.load_page(file_name)
-        else:
-            logger.error("path {} <-mismatch-> url {}".format(str(pathlib.Path(path_project).absolute().as_uri())[7:], path_url_str))
+        except ValueError:
+            logger.error(f"Path {url_path} is not inside project path {project_path}")
+        except Exception as e:
+            logger.error(f"Error in on_internal_url: {e}")
 
     def on_back_btn(self):
         logger.info("hit back btn")

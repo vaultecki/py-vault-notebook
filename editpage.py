@@ -20,29 +20,21 @@ class EditPage(PyQt6.QtWidgets.QWidget):
     project_new_file = PySignal.Signal()
     geometry_update = PySignal.Signal()
 
-    def __init__(self, project_data, project_name, file_name):
+    def __init__(self):
         super().__init__()
-        if not project_data:
-            raise TypeError("missing project data")
-        if not project_name:
-            raise TypeError("missing project name")
-        if not file_name:
-            raise TypeError("missing file name")
-        self.project_data = project_data
-        self.project_name = project_name
-        self.file_name = file_name
-        logger.info("edit {} from project {}".format(file_name, project_name))
+
+        self.project_data = None
+        self.project_name = None
+        self.file_name = None
 
         # ui
         main_layout = PyQt6.QtWidgets.QVBoxLayout()
         self.text_field = PyQt6.QtWidgets.QPlainTextEdit()
         main_layout.addWidget(self.text_field)
         main_layout.addWidget(self.init_format_field())
-        self.setWindowTitle('Notedit {}'.format(file_name))
 
         # settings
         self.setLayout(main_layout)
-        #self.resize(900, 500)
         self.text_field.setLineWrapMode(PyQt6.QtWidgets.QPlainTextEdit.LineWrapMode.NoWrap)
         self.setWindowModality(PyQt6.QtCore.Qt.WindowModality.ApplicationModal)
 
@@ -52,9 +44,6 @@ class EditPage(PyQt6.QtWidgets.QWidget):
         # variables
         self.changed = False
 
-        # loadings
-        self.load_content()
-        logger.info("Edit window initialized")
         # add shortcuts
         PyQt6.QtGui.QShortcut(PyQt6.QtGui.QKeySequence("Ctrl+S"), self).activated.connect(self.on_save_changes)
         PyQt6.QtGui.QShortcut(PyQt6.QtGui.QKeySequence("ESC"), self).activated.connect(self.close)
@@ -209,6 +198,24 @@ class EditPage(PyQt6.QtWidgets.QWidget):
         self.changed = False
         self.ascii_file_changed.emit(self.file_name)
         return
+
+    def load_document(self, project_data, project_name, file_name):
+        if not project_data:
+            raise TypeError("missing project data")
+        if not project_name:
+            raise TypeError("missing project name")
+        if not file_name:
+            raise TypeError("missing file name")
+
+        self.project_data = project_data
+        self.project_name = project_name
+        self.file_name = file_name
+
+        logger.info("edit {} from project {}".format(file_name, project_name))
+        self.setWindowTitle('Notedit {}'.format(file_name))
+
+        self.load_content()
+        logger.info("Edit window loaded document")
 
     def load_content(self):
         text_file_path = os.path.join(self.project_data.get("path", ""), self.file_name)

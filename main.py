@@ -66,6 +66,7 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
         self.web_engine_view.setPage(self.web_page)
         # init
         self.init_ui()
+        # repo
         while not self.data.get("projects", {}):
             self.create_new_project()
         if not self.data.get("last_project"):
@@ -76,9 +77,16 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
         except ImportError:
             PyQt6.QtWidgets.QMessageBox("Error Project {} with Path {} not fould. Project removed from config".format(project_name, self.data.get("projects", {}).get(project_name, {}).get("path", "")))
             self.data.get("projects", {}).pop(project_name, None)
+        # edit window
+        self.edit_page_window = editpage.EditPage()
+        # connect edit window
+        self.edit_page_window.ascii_file_changed.connect(self.load_page)
+        self.edit_page_window.ascii_file_changed.connect(self.on_file_edited)
+        self.edit_page_window.project_new_file.connect(self.on_upload_file)
+        self.edit_page_window.geometry_update.connect(self.edit_page_window_geometry)
+        self.edit_page_window.project_data_changed.connect(self.project_data_update)
+        # start page
         self.load_page(self.data.get("projects", {}).get(project_name, {}).get("last_ascii_file", ""))
-        self.edit_page_window = editpage.EditPage(project_data=self.data.get("projects", {}).get(project_name, {}), project_name=project_name,
-                                         file_name=self.data.get("projects", {}).get(project_name, {}).get("last_ascii_file", ""))
 
     def on_external_url(self, url):
         reply = PyQt6.QtWidgets.QMessageBox.question(self, "Proceed",
@@ -89,6 +97,23 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
             logger.debug("open link {} in external browser".format(url))
             PyQt6.QtGui.QDesktopServices.openUrl(url)
         return
+
+    def open_editor_window(self, project_data, project_name, file_name):
+        """ Lädt Daten in das bestehende Editorfenster und zeigt es an. """
+        try:
+            self.edit_page_window.load_document(
+                project_data=project_data,
+                project_name=project_name,
+                file_name=file_name
+            )
+
+            geometry = self.data.get("edit_window_geometry", [300, 300, 600, 600])
+            self.edit_page_window.set_geometry(geometry)
+            self.edit_page_window.show()
+
+        except Exception as e:
+            logger.error(f"Failed to load document into editor: {e}")
+            PyQt6.QtWidgets.QMessageBox.warning(self, "Fehler", f"Konnte Editor nicht laden: {e}")
 
     def read_config(self):
         home_dir = os.path.expanduser("~")
@@ -327,21 +352,7 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
 
             if url_path.suffix.lower() in [".adoc", ".asciidoc"]:
                 logger.info("edit page {}".format(file_name))
-                self.edit_page_window.ascii_file_changed.disconnect(self.load_page)
-                self.edit_page_window.ascii_file_changed.disconnect(self.on_file_edited)
-                self.edit_page_window.project_new_file.disconnect(self.on_upload_file)
-                self.edit_page_window.project_data_changed.disconnect(self.project_data_update)
-                self.edit_page_window.geometry_update.disconnect(self.edit_page_window_geometry)
-                self.edit_page_window = editpage.EditPage(project_data=project, project_name=project_name, file_name=file_name)
-                geometry = self.data.get("edit_window_geometry", [300, 300, 600, 600])
-                self.edit_page_window.set_geometry(geometry)
-                self.edit_page_window.show()
-                self.edit_page_window.ascii_file_changed.connect(self.load_page)
-                self.edit_page_window.ascii_file_changed.connect(self.on_file_edited)
-                self.edit_page_window.project_new_file.connect(self.on_upload_file)
-                self.edit_page_window.geometry_update.connect(self.edit_page_window_geometry)
-                self.edit_page_window.project_data_changed.connect(self.project_data_update)
-
+                self.open_editor_window(project, project_name, file_name)
             else:
                 logger.warning(f"Cannot edit file type: {url_path.suffix}")
 
@@ -413,7 +424,12 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
 
     @PyQt6.QtCore.pyqtSlot(PyQt6.QtGui.QCloseEvent)
     def closeEvent(self, event):
-        # ... (Ihr Code zum Speichern der Geometrie) ...
+        if os.name in ["nt", "windows"]:
+            geometry = (self.frameGeometry().x(), self.frameGeometry().y() + 31, self.frameGeometry().width(),
+                        self.frameGeometry().height() - 31)
+        else:
+            geometry = (self.frameGeometry().x(), self.frameGeometry().y(), self.frameGeometry().width(),
+                        self.frameGeometry().height())
         self.data.update({"geometry": geometry})
         logger.info("Closing the notebook window")
         self.write_config()

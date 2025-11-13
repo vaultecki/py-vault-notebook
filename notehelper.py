@@ -39,7 +39,7 @@ def search_files(search_text, files, project_path, cut_off=0.8):
     for single_result in jaro_filenames_result:
         result_text = "{}\n* link:{}[{}]".format(result_text, single_result, single_result)
     result_text = "{}\n\n=== search text found in files".format(result_text)
-    for single_result in jaro_filenames_result:
+    for single_result in jaro_results:
         result_text = "{}\n* link:{}[{}]".format(result_text, single_result, single_result)
     result_text = "{}\n\n".format(result_text)
     return result_text

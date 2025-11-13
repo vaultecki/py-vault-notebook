@@ -193,7 +193,7 @@ class EditPage(PyQt6.QtWidgets.QWidget):
             html_text = notehelper.text_2_html(text)
         except Exception as e:
             logger.error("error in asciidoc: {}".format(e))
-            PyQt6.QtWidgets.QMessageBox.warning(f"error in asciidoc: {e}")
+            PyQt6.QtWidgets.QMessageBox.warning(self, "Asciidoc error",f"error in asciidoc: {e}")
             return
         logger.debug("new html_text would be: {}".format(html_text))
         with open(text_file_path, "w", encoding="utf-8") as text_file:

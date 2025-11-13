@@ -1,6 +1,7 @@
 import logging
 import notehelper
 import os
+import pathlib
 import shutil
 import sys
 
@@ -148,20 +149,23 @@ class EditPage(PyQt6.QtWidgets.QWidget):
             logger.warning("no file for upload target selected")
             return
         copy_file = copy_file[0]
-        path_url_str = str(os.path.split(copy_file)[0])
-        file_name = str(os.path.split(copy_file)[1])
-        if path_url_str.startswith(copy_dir):
-            logger.info("url starts with {}".format(copy_dir))
-            if path_url_str > copy_dir:
-                logger.info("recreate relative project path")
-                cut_length = len(copy_dir) + 1
-                if copy_dir.endswith("/"):
-                    cut_length = cut_length - 1
-                logger.info("copy file {} to project path as {}".format(import_file, copy_file))
-                prefix = path_url_str[cut_length:]
-                file_name = "{}/{}".format(prefix, file_name)
-            shutil.copy(import_file, copy_file)
-            self.project_new_file.emit(file_name)
+        try:
+            target_path = pathlib.Path(copy_file)
+            project_path = pathlib.Path(copy_dir)
+
+            relative_path = target_path.relative_to(project_path)
+            file_name_for_git = str(relative_path)
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+
+            shutil.copy(import_file, target_path)
+            logger.info(f"Datei {import_file} nach {target_path} kopiert.")
+            self.project_new_file.emit(file_name_for_git)
+        except ValueError:
+            logger.error(f"Fehler: Zieldatei {copy_file} liegt nicht im Projektpfad {copy_dir}.")
+            PyQt6.QtWidgets.QMessageBox.warning(self, "Pfad-Fehler",
+                                                "Die Datei muss innerhalb des Projektverzeichnisses gespeichert werden.")
+        except Exception as e:
+            logger.error(f"Fehler beim Datei-Upload: {e}")
 
     def on_click_info(self):
         logger.info("info clicked")
@@ -223,10 +227,14 @@ class EditPage(PyQt6.QtWidgets.QWidget):
         self.disconnect_text_field_signals()
 
         self.text_field.clear()
-        with open(text_file_path, "r", encoding="utf-8") as text_file:
-            text = text_file.readlines()
-        for line in text:
-            self.text_field.appendPlainText(line.strip())
+        try:
+            with open(text_file_path, "r", encoding="utf-8") as text_file:
+                text = text_file.read()  # Ganze Datei auf einmal lesen
+            self.text_field.setPlainText(text)  # Ganzen Text auf einmal setzen
+        except Exception as e:
+            logger.error(f"Fehler beim Laden von {text_file_path}: {e}")
+            self.text_field.setPlainText(f"== FEHLER ==\nKonnte Datei nicht laden:\n{e}")
+
         self.text_field.setFocus()
         self.changed = False
         self.connect_text_field_signals()

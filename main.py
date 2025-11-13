@@ -402,13 +402,14 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
 
     @PyQt6.QtCore.pyqtSlot(PyQt6.QtGui.QCloseEvent)
     def closeEvent(self, event):
-        if os.name in ["nt", "windows"]:
-            geometry = (self.frameGeometry().x(), self.frameGeometry().y()+31, self.frameGeometry().width(), self.frameGeometry().height()-31)
-        else:
-            geometry = (self.frameGeometry().x(), self.frameGeometry().y(), self.frameGeometry().width(), self.frameGeometry().height())
+        # ... (Ihr Code zum Speichern der Geometrie) ...
         self.data.update({"geometry": geometry})
         logger.info("Closing the notebook window")
         self.write_config()
+
+        if hasattr(self, 'repo') and self.repo:
+            self.repo.cleanup()
+
         self.web_engine_view.setPage(None)
         self.web_engine_view = None
         self.web_page = None

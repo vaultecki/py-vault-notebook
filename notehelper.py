@@ -1,6 +1,7 @@
 import asciidoc
 import logging
 import io
+import re
 import jaro
 import os.path
 
@@ -19,67 +20,104 @@ def text_2_html(text_in):
     return text_out.getvalue()
 
 def search_files(search_text, files, project_path, cut_off=0.8):
-    search_text_lower = search_text.lower()
+    logger.info("semantic search")
+    search_l = search_text.lower()
+
     results = []
 
     for file in files:
-        file_score = 0.0
-
-        # 1) FILE NAME MATCH
-        name_lower = file.lower()
-        if search_text_lower in name_lower:
-            file_score += 1.0
-
-        # 2) SIMILARITY OF FILE NAME
-        sim = jaro.jaro_winkler_metric(name_lower, search_text_lower)
-        if sim > 0.85:
-            file_score += sim * file_match_weight
-
-        # Skip if no filename relevance
-        if file_score == 0:
-            # We still check contents below
-            pass
-
-        # 3) CONTENT MATCH / only for small text files
         file_path = os.path.join(project_path, file)
 
-        # skip binary or large files
+        # Skip large/binary files
         if not file.endswith((".adoc", ".asciidoc", ".txt", ".md")):
-            # only filenames count for non-text files
-            if file_score > 0:
-                results.append((file, file_score))
+            # Filename-only relevance
+            score = compute_relevance_score(search_l, file, "")
+            if score > 0:
+                results.append((file, score))
             continue
 
         try:
             if os.path.getsize(file_path) > max_file_kb * 1024:
-                continue  # skip large file
+                continue
 
             with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-                text = f.read().lower()
+                text = f.read()
 
-            if search_text_lower in text:
-                file_score += 2.0  # strong match
+            score = compute_relevance_score(search_l, file, text)
+
+            if score > 0:
+                results.append((file, score))
 
         except Exception as e:
-            logger.error(f"Error reading file {file}: {e}")
-            continue
+            logger.error(f"Error in semantic search: {e}")
 
-        if file_score > 0:
-            results.append((file, file_score))
-
-    # Sort by score descending
+    # Sort by descending score
     results.sort(key=lambda x: x[1], reverse=True)
 
-    # Create result Asciidoc
-    result_text = f"== Search results for \"{search_text}\"\n\n"
+    # Create result page
+    result_text = f"== Results for \"{search_text}\"\n\n"
 
     if not results:
         return result_text + "_No results found._\n"
 
-    result_text += "=== Results (ranked)\n"
-    for filename, score in results:
-        result_text += f"* link:{filename}[{filename}] — score {score:.2f}\n"
+    result_text += "=== Ranked by relevance\n"
+    for fname, score in results:
+        result_text += f"* link:{fname}[{fname}] — score {score:.2f}\n"
     return result_text
+
+def compute_relevance_score(search, filename, text):
+    search_l = search.lower()
+    fname = filename.lower()
+    score = 0.0
+
+    # -------------------------------
+    # 1) Filename matches
+    # -------------------------------
+    if search_l in fname:
+        score += 3.0
+
+    # similarity-based match
+    sim = jaro.jaro_winkler_metric(fname, search_l)
+    if sim > 0.85:
+        score += sim * 2.0
+
+    # -------------------------------
+    # 2) Headings (Asciidoc)
+    # -------------------------------
+    headings = re.findall(r"(?m)^(={1,6})\s+(.+)$", text)
+    for level, title in headings:
+        title_l = title.lower()
+        if search_l in title_l:
+            score += 4.0 + (1.0 / len(level))  # == wichtiger als ======
+
+    # -------------------------------
+    # 3) Emphasis or bold *text* or _text_
+    # -------------------------------
+    for emp in re.findall(r"[*_](.+?)[*_]", text):
+        if search_l in emp.lower():
+            score += 2.5
+
+    # -------------------------------
+    # 4) Link texts link:target[TEXT]
+    # -------------------------------
+    for link_text in re.findall(r"link:[^\[]+\[([^\]]+)\]", text):
+        if search_l in link_text.lower():
+            score += 2.0
+
+    # -------------------------------
+    # 5) Word-boundary matches
+    # -------------------------------
+    if re.search(rf"\b{re.escape(search_l)}\b", text.lower()):
+        score += 2.0
+
+    # -------------------------------
+    # 6) Keyword frequency (TF-like)
+    # -------------------------------
+    freq = text.lower().count(search_l)
+    if freq > 0:
+        score += 1.0 * min(freq, 5)  # capped
+
+    return score
 
 
 if __name__ == "__main__":

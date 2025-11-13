@@ -49,6 +49,7 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
         # init later used variables
         self.config_filename = False
         self.data = {}
+        self.current_file_name = None
         # init up elements
         self.project_drop_down = PyQt6.QtWidgets.QComboBox()
         self.search_box = PyQt6.QtWidgets.QComboBox()
@@ -260,6 +261,7 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
         if not file_name:
             file_name = self.data.get("index_file", "index.asciidoc")
         project_name = self.project_drop_down.currentText()
+        self.current_file_name = file_name
         logger.info("Loading page {} from project {}".format(file_name, project_name))
 
         project = self.data.get("projects").get(project_name)
@@ -319,33 +321,24 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
         project_name = self.project_drop_down.currentText()
         project = self.data.get("projects").get(project_name)
 
-        try:
-            project_path_str = project.get("path", "")
-            if not project_path_str:
-                logger.error("No project path configured.")
-                return
+        if not project:
+            logger.error(f"Project '{project_name}' not found.")
+            return
 
-            project_path = pathlib.Path(project_path_str).absolute()
-            current_url = self.web_page.url()
-            url_path = pathlib.Path(current_url.toLocalFile())
+        if not self.current_file_name:
+            logger.warning("No file is currently loaded to edit.")
+            PyQt6.QtWidgets.QMessageBox.warning(self, "Fehler", "Keine Datei zum Bearbeiten geladen.")
+            return
 
-            if url_path.suffix == ".html":
-                original_name = url_path.name[:-5]
-                url_path = url_path.with_name(original_name)
-
-            relative_path = url_path.relative_to(project_path)
-            file_name = str(relative_path)
-
-            if url_path.suffix.lower() in [".adoc", ".asciidoc"]:
-                logger.info("edit page {}".format(file_name))
-                self.open_editor_window(project, project_name, file_name)
-            else:
-                logger.warning(f"Cannot edit file type: {url_path.suffix}")
-
-        except ValueError:
-            logger.error(f"Path {url_path} is not inside project path {project_path}")
-        except Exception as e:
-            logger.error(f"Error in on_click_edit_page: {e}")
+        file_name = self.current_file_name
+        file_extension = file_name.split(".")[-1].lower()
+        if file_extension in ["adoc", "asciidoc"]:
+            logger.info("edit page {}".format(file_name))
+            self.open_editor_window(project, project_name, file_name)
+        else:
+            logger.warning(f"Cannot edit file type: {file_extension}")
+            PyQt6.QtWidgets.QMessageBox.information(self, "Hinweis",
+                                                    f"Dateityp '{file_extension}' kann nicht bearbeitet werden.")
 
     def edit_page_window_geometry(self, geometry):
         # print(geometry)

@@ -4,7 +4,6 @@ import os
 import shutil
 import sys
 
-import PySignal
 import PyQt6
 import PyQt6.QtCore
 import PyQt6.QtGui
@@ -15,10 +14,10 @@ logger = logging.getLogger(__name__)
 
 
 class EditPage(PyQt6.QtWidgets.QWidget):
-    ascii_file_changed = PySignal.Signal()
-    project_data_changed = PySignal.Signal()
-    project_new_file = PySignal.Signal()
-    geometry_update = PySignal.Signal()
+    ascii_file_changed = PyQt6.QtCore.pyqtSignal(str)
+    project_data_changed = PyQt6.QtCore.pyqtSignal(dict)
+    project_new_file = PyQt6.QtCore.pyqtSignal(str)
+    geometry_update = PyQt6.QtCore.pyqtSignal(tuple)
 
     def __init__(self):
         super().__init__()

@@ -7,8 +7,6 @@ import pathlib
 import sys
 import time
 
-import PySignal
-
 import PyQt6
 import PyQt6.QtCore
 import PyQt6.QtGui
@@ -26,8 +24,8 @@ logger = logging.getLogger(__name__)
 
 class NotebookPage(PyQt6.QtWebEngineCore.QWebEnginePage):
     """ Custom WebEnginePage to customize how we handle link navigation """
-    nav_link_clicked_internal_signal = PySignal.Signal()
-    nav_link_clicked_external_signal = PySignal.Signal()
+    nav_link_clicked_internal_signal = PyQt6.QtCore.pyqtSignal(PyQt6.QtCore.QUrl)
+    nav_link_clicked_external_signal = PyQt6.QtCore.pyqtSignal(PyQt6.QtCore.QUrl)
 
     def acceptNavigationRequest(self, url, _type, isMainFrame):
         if _type == PyQt6.QtWebEngineCore.QWebEnginePage.NavigationType.NavigationTypeLinkClicked:

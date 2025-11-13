@@ -242,81 +242,69 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
         logger.info("search clicked for text {}".format(search_text))
         if not search_text:
             return
-        project_path = self.data.get("projects",{}).get(self.project_drop_down.currentText(), {}).get("path", "")
+
+        project_path = self.data.get("projects", {}).get(self.project_drop_down.currentText(), {}).get("path", "")
         if not project_path:
             logger.warning("no project path found")
             return
+
+        base_url = PyQt6.QtCore.QUrl.fromLocalFile(project_path + os.path.sep)
         if self.search_box.findText(search_text) < 0:
             self.search_box.addItem(search_text)
-        search_file_name = hashlib.md5(search_text.encode("utf-8")).hexdigest()
-        search_file_name = os.path.join(project_path, "search-{}.html".format(search_file_name))
-        search_file_name = os.path.normpath(search_file_name)
-        if not os.path.exists(search_file_name):
-            search_result = notehelper.search_files(search_text, self.repo.list_all_files(), project_path)
-            html_text = notehelper.text_2_html(search_result)
-            try:
-                with open(search_file_name, "w", encoding="utf-8") as html_file:
-                    html_file.write(html_text)
-            except FileNotFoundError:
-                logger.error("problem writing new file {}".format(search_file_name))
-                return
-        self.web_page.load(PyQt6.QtCore.QUrl(pathlib.Path(search_file_name).absolute().as_uri()))
+
+        search_result = notehelper.search_files(search_text, self.repo.list_all_files(), project_path)
+        html_text = notehelper.text_2_html(search_result)
+        self.web_page.setHtml(html_text, base_url)
 
     def load_page(self, file_name=None):
         if not file_name:
             file_name = self.data.get("index_file", "index.asciidoc")
         project_name = self.project_drop_down.currentText()
         logger.info("Loading page {} from project {}".format(file_name, project_name))
+
         project = self.data.get("projects").get(project_name)
-        #
-        # open files in webview
-        if file_name.split(".")[-1].lower() in ["htm", "html", "txt", "jpg", "png", "jpeg"]:
-            chrome_file_name = os.path.join(project.get("path"), file_name)
-            chrome_file_name = os.path.normpath(chrome_file_name)
-            logger.info("open other files in webview: {}".format(chrome_file_name))
-            self.web_page.load(PyQt6.QtCore.QUrl(pathlib.Path(chrome_file_name).absolute().as_uri()))
+        project_path = project.get("path")
+
+        base_url = PyQt6.QtCore.QUrl.fromLocalFile(project_path + os.path.sep)
+        full_file_path = os.path.join(project_path, file_name)
+        full_file_path = os.path.normpath(full_file_path)
+        file_extension = file_name.split(".")[-1].lower()
+
+        # open some known extensions in webview
+        if file_extension in ["htm", "html", "txt", "jpg", "png", "jpeg"]:
+            logger.info("open other files in webview: {}".format(full_file_path))
+            self.web_page.load(PyQt6.QtCore.QUrl(pathlib.Path(full_file_path).absolute().as_uri()))
             return
-        #
+
         # open pdf in extern
-        if file_name.split(".")[-1].lower() in ["pdf", "ppt", "doc", "docx"]:
-            pdf_file_name = os.path.join(project.get("path"), file_name)
-            # pdf_file_name = os.path.normpath(pdf_file_name)
-            logger.info("open pdf in extern: {}".format(pdf_file_name))
-            self.on_external_url(PyQt6.QtCore.QUrl(pathlib.Path(pdf_file_name).absolute().as_uri()))
+        if file_extension in ["pdf", "ppt", "doc", "docx"]:
+            logger.info("open pdf in extern: {}".format(full_file_path))
+            self.on_external_url(PyQt6.QtCore.QUrl(pathlib.Path(full_file_path).absolute().as_uri()))
             return
         #
-        # dont open rest
-        if file_name.split(".")[-1].lower() not in ["adoc", "asciidoc"]:
-            return
-        ascii_file_name = os.path.join(project.get("path"), file_name)
-        ascii_file_name = os.path.normpath(ascii_file_name)
-        logger.info("Loading page {}".format(ascii_file_name))
-        try:
-            with open(ascii_file_name, "r", encoding="utf-8") as ascii_file:
-                text_in = ascii_file.read()
-        except FileNotFoundError:
-            logger.warning("file {} not found".format(ascii_file_name))
-            text_in = "== empty page\n"
-            if not os.path.exists(os.path.split(ascii_file_name)[0]):
-                os.makedirs(os.path.split(ascii_file_name)[0])
-            if os.path.isdir(os.path.split(ascii_file_name)[0]):
-                logger.error("path {} not a directory".format(os.path.split(ascii_file_name)[0]))
+        # open asciidoc as html
+        if file_extension in ["adoc", "asciidoc"]:
+            logger.info("Loading asciidoc page {}".format(full_file_path))
             try:
-                with open(ascii_file_name, "w", encoding="utf-8") as ascii_file:
-                    ascii_file.write(text_in)
-                    self.repo.add_file(file_name)
+                with open(full_file_path, "r", encoding="utf-8") as ascii_file:
+                    text_in = ascii_file.read()
             except FileNotFoundError:
-                logger.error("problem writing new file {}".format(ascii_file_name))
-                return
-        html_text = notehelper.text_2_html(text_in)
-        html_file_name = "{}.html".format(ascii_file_name)
-        try:
-            with open(html_file_name, "w", encoding="utf-8") as html_file:
-                html_file.write(html_text)
-        except FileNotFoundError:
-            logger.error("problem writing new file {}".format(html_file_name))
-            return
-        self.web_page.load(PyQt6.QtCore.QUrl(pathlib.Path(html_file_name).absolute().as_uri()))
+                logger.warning("file {} not found, creating new".format(full_file_path))
+
+                text_in = "== empty page\n"
+                os.makedirs(os.path.split(full_file_path)[0], exist_ok=True)
+                try:
+                    with open(full_file_path, "w", encoding="utf-8") as ascii_file:
+                        ascii_file.write(text_in)
+                        self.repo.add_file(file_name)
+                except IOError as e:
+                    logger.error("problem writing new file {}: {}".format(full_file_path, e))
+                    return
+
+            html_text = notehelper.text_2_html(text_in)
+            self.web_page.setHtml(html_text, base_url)
+
+        return
 
     def on_file_edited(self, file_name):
         logger.info("git update {}".format(file_name))

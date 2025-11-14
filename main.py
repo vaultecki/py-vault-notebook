@@ -115,19 +115,19 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
             PyQt6.QtWidgets.QMessageBox.warning(self, "Fehler", f"Konnte Editor nicht laden: {e}")
 
     def read_config(self):
-        home_dir = os.path.expanduser("~")
+        home_dir = pathlib.Path.home()
+
         if os.name in ["nt", "windows"]:
-            home_dir = os.path.join(home_dir, "AppData\\Local\\ThaNote")
+            config_dir = home_dir / "AppData" / "Local" / "ThaNote"
         else:
-            home_dir = os.path.join(home_dir, ".config/ThaNote")
-        if not os.path.exists(home_dir):
-            os.makedirs(home_dir)
-        self.config_filename = os.path.join(home_dir, "config.json")
-        logger.debug("open {}".format(self.config_filename))
+            config_dir = home_dir / ".config" / "ThaNote"
+
+        self.config_filename = config_dir / "config.json"
+        logger.debug(f"open {self.config_filename}")
+
         try:
-            with open(self.config_filename, "r", encoding="utf-8") as config_file:
-                data = json.load(config_file)
-        except IOError as err:
+            data = json.loads(self.config_filename.read_text(encoding="utf-8"))
+        except (IOError, FileNotFoundError) as err:  # Besser, spezifische Fehler abzufangen
             logger.warning("Oops, error: {}".format(err))
             data = {}
         self.data = data

@@ -113,7 +113,17 @@ class EditPage(PyQt6.QtWidgets.QWidget):
         logger.info("clicked show docs")
         selected_file = docbrowser.DocBrowserDialog.get_selected_file(self.file_list, self)
         if selected_file:
-            link_text = f"link:{selected_file}[]"
+            try:
+                # self.file_name ist z.B. "notizen/projekt_a/meeting.adoc"
+                current_dir = str(pathlib.Path(self.file_name).parent)
+            except Exception as e:
+                logger.error(f"Konnte übergeordnetes Verzeichnis von {self.file_name} nicht finden: {e}")
+                current_dir = "."
+
+            relative_link_path = os.path.relpath(selected_file, current_dir)
+            relative_link_path = relative_link_path.replace(os.path.sep, '/')
+
+            link_text = f"link:{relative_link_path}[]"
             self.text_field.insertPlainText(link_text)
             self.text_field.setFocus()
 

@@ -1,6 +1,6 @@
 import git
 import logging
-import os
+import pathlib
 import shutil
 import PyQt6.QtCore
 
@@ -22,8 +22,6 @@ class GitWorker(PyQt6.QtCore.QObject):
     def do_pull(self, project_path):
         """ Führt 'git pull' für alle Remotes aus. """
         try:
-            # WICHTIG: Das Repo-Objekt muss in dem Thread erstellt werden,
-            # in dem es verwendet wird. GitPython ist nicht thread-sicher.
             repo = git.Repo(project_path)
             for remote in repo.remotes:
                 try:
@@ -76,11 +74,9 @@ class NoteGit(PyQt6.QtCore.QObject):
         if not self.repo:
             raise ImportError
 
-        # --- NEUER THREAD-SETUP ---
         self.git_thread = PyQt6.QtCore.QThread()
         self.git_worker = GitWorker()
 
-        # Worker in den neuen Thread verschieben
         self.git_worker.moveToThread(self.git_thread)
 
         # Trigger-Signale mit den Slots des Workers verbinden
@@ -94,7 +90,6 @@ class NoteGit(PyQt6.QtCore.QObject):
 
         # Thread starten
         self.git_thread.start()
-        # --- ENDE THREAD-SETUP ---
 
         if self.repo_load_ok:
             logger.info("repo exists")
@@ -104,11 +99,9 @@ class NoteGit(PyQt6.QtCore.QObject):
 
     def on_pull_finished(self):
         logger.info("Background pull finished.")
-        # Jetzt, nach dem Pull, auf lokale Änderungen prüfen
         self.__dirty_git()
 
     def __dirty_git(self):
-        # Diese Methode bleibt synchron, da sie schnell ist (lokale Commits)
         logger.info("check if git is dirty")
         if self.repo.is_dirty():
             logger.warning("git is dirty")
@@ -117,20 +110,18 @@ class NoteGit(PyQt6.QtCore.QObject):
                 self.update_file(diff.a_path)
 
     def init_git(self, project_path):
-        # ... (Diese Methode bleibt unverändert) ...
         logger.info("init git in path {}".format(project_path))
         self.repo = git.Repo.init(project_path)
-        script_dir = os.path.abspath(os.path.dirname(__file__))
-        template_dir = "data"
-        template_gitignore = "template_gitignore"
-        template_gitignore_abs_path = os.path.join(script_dir, template_dir)
-        template_gitignore_abs_path = os.path.join(template_gitignore_abs_path, template_gitignore)
-        target_gitignore = ".gitignore"
-        target_gitignore_abs_path = os.path.join(project_path, target_gitignore)
-        logger.info("copy gitignore {} -> {}".format(template_gitignore_abs_path, target_gitignore_abs_path))
+
+        script_dir = pathlib.Path(__file__).parent.resolve()
+        template_gitignore_abs_path = script_dir / "data" / "template_gitignore"
+        target_gitignore_abs_path = pathlib.Path(project_path) / ".gitignore"
+
+        logger.info(f"copy gitignore {template_gitignore_abs_path} -> {target_gitignore_abs_path}")
         shutil.copy(template_gitignore_abs_path, target_gitignore_abs_path)
+
         self.repo_load_ok = True
-        self.repo.index.add([target_gitignore])
+        self.repo.index.add([target_gitignore_abs_path])
         self.repo.index.commit("initial commit")
 
     def add_file(self, file_name):

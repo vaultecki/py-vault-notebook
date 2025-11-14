@@ -1,5 +1,6 @@
 import logging
 import notehelper
+import docbrowser
 import os
 import pathlib
 import shutil
@@ -26,6 +27,7 @@ class EditPage(PyQt6.QtWidgets.QWidget):
         self.project_data = None
         self.project_name = None
         self.file_name = None
+        self.file_list = []
 
         # ui
         main_layout = PyQt6.QtWidgets.QVBoxLayout()
@@ -109,8 +111,11 @@ class EditPage(PyQt6.QtWidgets.QWidget):
 
     def on_show_docs(self):
         logger.info("clicked show docs")
-        # todo implement something useful
-        pass
+        selected_file = docbrowser.DocBrowserDialog.get_selected_file(self.file_list, self)
+        if selected_file:
+            link_text = f"link:{selected_file}[]"
+            self.text_field.insertPlainText(link_text)
+            self.text_field.setFocus()
 
     def on_open_git(self):
         logger.info("open git clicked")
@@ -202,7 +207,7 @@ class EditPage(PyQt6.QtWidgets.QWidget):
         self.ascii_file_changed.emit(self.file_name)
         return
 
-    def load_document(self, project_data, project_name, file_name):
+    def load_document(self, project_data, project_name, file_name, file_list=[]):
         if not project_data:
             raise TypeError("missing project data")
         if not project_name:
@@ -213,6 +218,7 @@ class EditPage(PyQt6.QtWidgets.QWidget):
         self.project_data = project_data
         self.project_name = project_name
         self.file_name = file_name
+        self.file_list = file_list
 
         logger.info("edit {} from project {}".format(file_name, project_name))
         self.setWindowTitle('Notedit {}'.format(file_name))

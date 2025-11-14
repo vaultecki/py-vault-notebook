@@ -100,10 +100,13 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
     def open_editor_window(self, project_data, project_name, file_name):
         """ Lädt Daten in das bestehende Editorfenster und zeigt es an. """
         try:
+            file_list = self.repo.list_all_files()
+
             self.edit_page_window.load_document(
                 project_data=project_data,
                 project_name=project_name,
-                file_name=file_name
+                file_name=file_name,
+                file_list=file_list
             )
 
             geometry = self.data.get("edit_window_geometry", [300, 300, 600, 600])

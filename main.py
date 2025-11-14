@@ -417,25 +417,32 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
 
     def on_export_pdf(self):
         logger.info("hit export")
-        file_name = self.web_page.url().fileName()
-        export_dir = os.path.expanduser("~")
-        if os.name in ["nt", "windows"]:
-            export_dir = os.path.join(export_dir, "Downloads")
-        else:
-            export_dir = os.path.join(export_dir, "Downloads")
-        export_dir = self.data.get("export_dir", export_dir)
+
+        try:
+            export_dir = pathlib.Path.home() / "Downloads"
+            if not export_dir.exists():
+                export_dir = pathlib.Path.home()
+        except Exception:
+            export_dir = pathlib.Path.home()
+
+        export_dir_str = self.data.get("export_dir", str(export_dir))
+        export_dir = pathlib.Path(export_dir_str)
+        current_page_name = pathlib.Path(self.web_page.url().fileName())
         date_str = datetime.datetime.now().strftime("%Y-%m-%d")
-        file_name = "{}_{}.pdf".format(date_str, file_name)
-        file_name = os.path.join(export_dir, file_name)
-        pdf_file = PyQt6.QtWidgets.QFileDialog.getSaveFileName(self, "Save PDF file", file_name, "PDF (*.pdf)")
-        if pdf_file:
-            pdf_file = pdf_file[0]
-            if pdf_file:
-                self.web_engine_view.page().printToPdf(pdf_file)
-                logger.info("page exported to {}".format(pdf_file))
-                self.data.update({"export_dir": os.path.split(pdf_file)[0]})
-            else:
-                logger.warning("could not export")
+
+        file_name = f"{date_str}_{current_page_name.stem}.pdf"
+        default_pdf_path = export_dir / file_name
+
+        pdf_file_dialog = PyQt6.QtWidgets.QFileDialog.getSaveFileName(
+            self, "Save PDF file", str(default_pdf_path), "PDF (*.pdf)"
+        )
+
+        if pdf_file_dialog and pdf_file_dialog[0]:
+            pdf_file_path_str = pdf_file_dialog[0]
+            export_parent_dir = str(pathlib.Path(pdf_file_path_str).parent)
+            self.data.update({"export_dir": export_parent_dir})
+            self.web_engine_view.page().printToPdf(pdf_file_path_str)
+            logger.info(f"page exported to {pdf_file_path_str}")
         else:
             logger.warning("could not export")
 

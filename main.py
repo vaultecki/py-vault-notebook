@@ -342,9 +342,6 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
 
     def edit_page_window_geometry(self, geometry):
         # print(geometry)
-        if os.name in ["nt", "windows"]:
-            geometry = (geometry[0], geometry[1]+31, geometry[2], geometry[3]-31)
-        # print(geometry)
         self.data.update({"edit_window_geometry": geometry})
 
     def project_data_update(self, project_data):
@@ -403,12 +400,8 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
 
     @PyQt6.QtCore.pyqtSlot(PyQt6.QtGui.QCloseEvent)
     def closeEvent(self, event):
-        if os.name in ["nt", "windows"]:
-            geometry = (self.frameGeometry().x(), self.frameGeometry().y() + 31, self.frameGeometry().width(),
-                        self.frameGeometry().height() - 31)
-        else:
-            geometry = (self.frameGeometry().x(), self.frameGeometry().y(), self.frameGeometry().width(),
-                        self.frameGeometry().height())
+        geometry = self.geometry().getRect()
+
         self.data.update({"geometry": geometry})
         logger.info("Closing the notebook window")
         self.write_config()

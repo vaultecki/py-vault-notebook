@@ -280,12 +280,6 @@ class EditPage(PyQt6.QtWidgets.QWidget):
             self.text_field.setFocus()
             self._safe_connect_text_signal()
 
-    def connect_text_field_signals(self):
-        self.text_field.textChanged.connect(self.on_text_changed)
-
-    def disconnect_text_field_signals(self):
-        self.text_field.textChanged.disconnect(self.on_text_changed)
-
     @PyQt6.QtCore.pyqtSlot(PyQt6.QtGui.QCloseEvent)
     def closeEvent(self, event):
         logger.info("Trying to close window")

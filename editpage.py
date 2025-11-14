@@ -39,7 +39,7 @@ class EditPage(PyQt6.QtWidgets.QWidget):
         self.setWindowModality(PyQt6.QtCore.Qt.WindowModality.ApplicationModal)
 
         # signals
-        self.connect_text_field_signals()
+        self._safe_connect_text_signal()
 
         # variables
         self.changed = False

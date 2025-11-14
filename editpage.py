@@ -1,5 +1,6 @@
 import logging
 import notehelper
+import commitbrowser
 import docbrowser
 import os
 import pathlib
@@ -20,6 +21,7 @@ class EditPage(PyQt6.QtWidgets.QWidget):
     project_data_changed = PyQt6.QtCore.pyqtSignal(dict)
     project_new_file = PyQt6.QtCore.pyqtSignal(str)
     geometry_update = PyQt6.QtCore.pyqtSignal(tuple)
+    show_commits_requested = PyQt6.QtCore.pyqtSignal()
 
     def __init__(self):
         super().__init__()
@@ -129,7 +131,7 @@ class EditPage(PyQt6.QtWidgets.QWidget):
 
     def on_open_git(self):
         logger.info("open git clicked")
-        pass
+        self.show_commits_requested.emit()
 
     def on_upload(self):
         logger.info("upload clicked")
@@ -299,7 +301,7 @@ class EditPage(PyQt6.QtWidgets.QWidget):
     @PyQt6.QtCore.pyqtSlot(PyQt6.QtGui.QCloseEvent)
     def closeEvent(self, event):
         logger.info("Trying to close window")
-        geometry = (self.frameGeometry().x(), self.frameGeometry().y(), self.frameGeometry().width(), self.frameGeometry().height())
+        geometry = self.geometry().getRect()
         self.geometry_update.emit(geometry)
         if self.changed:
             msg_box = PyQt6.QtWidgets.QMessageBox()

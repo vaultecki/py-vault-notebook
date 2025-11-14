@@ -151,7 +151,25 @@ class NoteGit(PyQt6.QtCore.QObject):
         """ Diese Methode muss beim Schließen der App aufgerufen werden. """
         logger.info("Shutting down Git thread...")
         self.git_thread.quit()
-        self.git_thread.wait()  # Warten, bis der Thread sicher beendet ist
+        self.git_thread.wait()
+
+    def get_commit_log(self, max_count=50):
+        """ Ruft die letzten 'max_count' Commits als formatierten String ab. """
+        if not self.repo_load_ok:
+            return "Git-Repository nicht geladen."
+        try:
+            # --pretty=format:'...' ist ein Git-Befehl für schönes Logging
+            log_format = "%h %ad | %s (%an)"
+            date_format = "%Y-%m-%d %H:%M"
+            log_string = self.repo.git.log(
+                f"--pretty=format:{log_format}",
+                f"--date=format:{date_format}",
+                f"-n{max_count}"
+            )
+            return log_string
+        except Exception as e:
+            logger.error(f"Fehler beim Abrufen des Git-Logs: {e}")
+            return f"Fehler beim Abrufen des Logs:\n{e}"
 
 
 if __name__ == "__main__":

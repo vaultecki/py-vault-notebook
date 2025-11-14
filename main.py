@@ -17,6 +17,7 @@ import PyQt6.QtWebEngineWidgets
 import editpage
 import notegit
 import notehelper
+import commitbrowser
 
 
 logger = logging.getLogger(__name__)
@@ -50,6 +51,7 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
         self.config_filename = False
         self.data = {}
         self.current_file_name = None
+        self.commit_browser = None
         # init up elements
         self.project_drop_down = PyQt6.QtWidgets.QComboBox()
         self.search_box = PyQt6.QtWidgets.QComboBox()
@@ -84,6 +86,8 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
         self.edit_page_window.project_new_file.connect(self.on_upload_file)
         self.edit_page_window.geometry_update.connect(self.edit_page_window_geometry)
         self.edit_page_window.project_data_changed.connect(self.project_data_update)
+        # commitbrowser
+        self.edit_page_window.show_commits_requested.connect(self.on_show_commits)
         # start page
         self.load_page(self.data.get("projects", {}).get(project_name, {}).get("last_ascii_file", ""))
 
@@ -208,7 +212,7 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
         # open git btn
         open_git_button = PyQt6.QtWidgets.QPushButton("Commits")
         hbox.addWidget(open_git_button)
-        # open_git_button.clicked.connect(self.open_git)
+        open_git_button.clicked.connect(self.on_show_commits)
         # add/ new btn
         add_project_button = PyQt6.QtWidgets.QPushButton('Add/ New Project', self)
         hbox2.addWidget(add_project_button)
@@ -236,6 +240,26 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
         geometry = self.data.get("geometry", [300, 250, 900, 600])
         self.setGeometry(geometry[0], geometry[1], geometry[2], geometry[3])
         logger.info("Main window widgets created")
+
+    def on_show_commits(self):
+        """ Holt das Git-Log und zeigt den Commit-Browser an. """
+        logger.info("Showing commit browser")
+
+        # Verhindern, dass mehrere Fenster geöffnet werden
+        if self.commit_browser is not None and self.commit_browser.isVisible():
+            self.commit_browser.activateWindow()
+            return
+
+        try:
+            log_text = self.repo.get_commit_log()
+        except Exception as e:
+            logger.error(f"Could not get git log: {e}")
+            PyQt6.QtWidgets.QMessageBox.warning(self, "Fehler", f"Git-Log konnte nicht abgerufen werden: {e}")
+            return
+
+        # Dialog erstellen und anzeigen (nicht-modal mit .show())
+        self.commit_browser = commitbrowser.CommitBrowserDialog(log_text, self)
+        self.commit_browser.show()
 
     def on_search_local(self):
         search_text = self.search_box.currentText()

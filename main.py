@@ -264,7 +264,6 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
         if not file_name:
             file_name = self.data.get("index_file", "index.asciidoc")
         project_name = self.project_drop_down.currentText()
-        self.current_file_name = file_name
         logger.info("Loading page {} from project {}".format(file_name, project_name))
 
         project = self.data.get("projects").get(project_name)
@@ -290,6 +289,7 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
         # open asciidoc as html
         if file_extension in ["adoc", "asciidoc"]:
             logger.info("Loading asciidoc page {}".format(full_file_path))
+            self.current_file_name = file_name
             try:
                 with open(full_file_path, "r", encoding="utf-8") as ascii_file:
                     text_in = ascii_file.read()

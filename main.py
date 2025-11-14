@@ -149,33 +149,47 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
 
     def create_new_project(self):
         logger.debug("create new project")
-        project_path = PyQt6.QtWidgets.QFileDialog.getExistingDirectory(self, "Select Directory")
-        if project_path:
-            project_name = os.path.split(project_path)[1]
-            if self.data.get("projects", {}).get(project_name, False):
-                PyQt6.QtWidgets.QMessageBox.information(self, "Add Project", "Das Projekt is bereits in der Liste")
-                logger.error("Das Projekt is bereits in der Liste")
-                return
+        project_path_str = PyQt6.QtWidgets.QFileDialog.getExistingDirectory(self, "Select Directory")
+
+        if not project_path_str:
+            logger.warning("No directory selected.")
+            return
+
+        project_path = pathlib.Path(project_path_str)
+        project_name = project_path.name  # Ersetzt os.path.split(project_path)[1]
+
+        if self.data.get("projects", {}).get(project_name, False):
+            PyQt6.QtWidgets.QMessageBox.information(self, "Add Project", "Das Projekt is bereits in der Liste")
+            logger.error("Das Projekt is bereits in der Liste")
+            return
+        else:
+            index_file = self.data.get("index_file", "index.asciidoc")
+            self.data.update({"index_file": index_file})
+
+            filepath = project_path / index_file
+            if filepath.exists():
+                logger.info(f"filepath {filepath} found, opening index {index_file}")
             else:
-                index_file = self.data.get("index_file", "index.asciidoc")
-                self.data.update({"index_file": index_file})
-                filepath = os.path.join(project_path, index_file)
-                if os.path.exists(filepath):
-                    logger.info("filepath {} found, opening index {}".format(filepath, index_file))
-                else:
-                    with open(filepath, "w", encoding="utf-8") as text_file:
-                        text_str = "== new project {}\n\nasciidoc format\nlink:https://docs.asciidoctor.org/asciidoc/latest/syntax-quick-reference/[link quick reference guide asciidoc]\n".format(project_name)
-                        text_file.write(text_str)
-                        logger.error("new index file created {}".format(filepath))
-            projects = self.data.get("projects", {})
-            projects.update({project_name: {"path": project_path, "create_date": time.time(),
-                                            "last_ascii_file": self.data.get("index_file", "index.asciidoc")}})
-            self.data.update({"projects": projects})
-            self.data.update({"last_project": project_name})
-            self.project_drop_down.addItem(project_name)
-            self.repo = notegit.NoteGit(project_path)
-            self.repo.add_file(self.data.get("index_file", "index.asciidoc"))
-            self.load_page()
+                text_str = (f"== new project {project_name}\n\n"
+                            "asciidoc format\n"
+                            "link:https://docs.asciidoctor.org/asciidoc/latest/syntax-quick-reference/[link quick reference guide asciidoc]\n")
+
+                try:
+                    filepath.write_text(text_str, encoding="utf-8")
+                    logger.error(f"new index file created {filepath}")
+                except IOError as e:
+                    logger.error(f"Could not write index file {filepath}: {e}")
+                    return
+
+        projects = self.data.get("projects", {})
+        projects.update({project_name: {"path": project_path_str, "create_date": time.time(),
+                                        "last_ascii_file": self.data.get("index_file", "index.asciidoc")}})
+        self.data.update({"projects": projects})
+        self.data.update({"last_project": project_name})
+        self.project_drop_down.addItem(project_name)
+        self.repo = notegit.NoteGit(project_path_str)
+        self.repo.add_file(self.data.get("index_file", "index.asciidoc"))
+        self.load_page()
 
     def on_project_change(self):
         new_project_name = self.project_drop_down.currentText()

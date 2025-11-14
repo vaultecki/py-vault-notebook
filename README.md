@@ -7,7 +7,6 @@ NotebookApp based on:
     - git
 
 TODO List:
-- search
 - gui for version control
   
 Motivation:

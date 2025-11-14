@@ -220,24 +220,65 @@ class EditPage(PyQt6.QtWidgets.QWidget):
         self.load_content()
         logger.info("Edit window loaded document")
 
-    def load_content(self):
-        text_file_path = os.path.join(self.project_data.get("path", ""), self.file_name)
+    def _read_file_safely(self, path: pathlib.Path) -> str:
+        """
+        Safely read a text file.
+        - Handles missing files
+        - Uses UTF-8 with fallback
+        - Raises exceptions for caller
+        """
+        if not path.exists():
+            raise FileNotFoundError(f"Datei nicht gefunden: {path}")
 
-        # disconnect signals
-        self.disconnect_text_field_signals()
-
-        self.text_field.clear()
+        # try UTF-8 first, then fallback
         try:
-            with open(text_file_path, "r", encoding="utf-8") as text_file:
-                text = text_file.read()  # Ganze Datei auf einmal lesen
-            self.text_field.setPlainText(text)  # Ganzen Text auf einmal setzen
-        except Exception as e:
-            logger.error(f"Fehler beim Laden von {text_file_path}: {e}")
-            self.text_field.setPlainText(f"== FEHLER ==\nKonnte Datei nicht laden:\n{e}")
+            with path.open("r", encoding="utf-8") as f:
+                return f.read()
+        except UnicodeDecodeError:
+            logger.warning(f"UTF-8 decode failed for {path}, retrying latin-1")
+            with path.open("r", encoding="latin-1", errors="replace") as f:
+                return f.read()
 
-        self.text_field.setFocus()
-        self.changed = False
-        self.connect_text_field_signals()
+    def _safe_disconnect_text_signal(self):
+        """Disconnect textChanged safely (avoid TypeError if not connected)."""
+        try:
+            self.text_field.textChanged.disconnect(self.on_text_changed)
+        except TypeError:
+            pass  # already disconnected
+
+    def _safe_connect_text_signal(self):
+        """Reconnect textChanged without risk of double-connecting."""
+        self._safe_disconnect_text_signal()
+        self.text_field.textChanged.connect(self.on_text_changed)
+
+    def load_content(self):
+        if not self.project_data or not self.file_name:
+            logger.error("load_content called without valid project data or filename")
+            self.text_field.setPlainText("== FEHLER ==\nUngültige Projektdaten oder Dateiname.")
+            return
+
+        project_path = pathlib.Path(self.project_data.get("path", ""))
+        file_path = project_path / self.file_name
+
+        logger.info(f"Loading file content from {file_path}")
+
+        # Disconnect textChanged to avoid setting changed=True while loading
+        self._safe_disconnect_text_signal()
+
+        try:
+            text = self._read_file_safely(file_path)
+            self.text_field.setPlainText(text)
+
+        except Exception as e:
+            logger.error(f"Fehler beim Laden von {file_path}: {e}")
+            error_text = f"== FEHLER ==\nKonnte Datei nicht laden:\n{e}"
+            self.text_field.setPlainText(error_text)
+
+        finally:
+            # Reset state and reconnect signals
+            self.changed = False
+            self.text_field.setFocus()
+            self._safe_connect_text_signal()
 
     def connect_text_field_signals(self):
         self.text_field.textChanged.connect(self.on_text_changed)

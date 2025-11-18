@@ -396,365 +396,189 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
 
         self.load_page()
 
+    def init_ui(self) -> None:
+        """Initialize the user interface."""
+        vbox = PyQt6.QtWidgets.QVBoxLayout()
+        hbox = PyQt6.QtWidgets.QHBoxLayout()
+        hbox2 = PyQt6.QtWidgets.QHBoxLayout()
 
-def init_ui(self) -> None:
-    """Initialize the user interface."""
-    vbox = PyQt6.QtWidgets.QVBoxLayout()
-    hbox = PyQt6.QtWidgets.QHBoxLayout()
-    hbox2 = PyQt6.QtWidgets.QHBoxLayout()
+        # Project dropdown
+        self.project_drop_down.setMinimumWidth(130)
+        hbox.addWidget(self.project_drop_down)
 
-    # Project dropdown
-    self.project_drop_down.setMinimumWidth(130)
-    hbox.addWidget(self.project_drop_down)
+        project_highlight = self.data.get("last_project", "")
+        for project_name in list(self.data.get("projects", {}).keys()):
+            if not project_highlight:
+                project_highlight = project_name
+            self.project_drop_down.addItem(project_name)
 
-    project_highlight = self.data.get("last_project", "")
-    for project_name in list(self.data.get("projects", {}).keys()):
-        if not project_highlight:
-            project_highlight = project_name
-        self.project_drop_down.addItem(project_name)
+        if project_highlight:
+            self.project_drop_down.setCurrentText(project_highlight)
 
-    if project_highlight:
-        self.project_drop_down.setCurrentText(project_highlight)
-
-    # Disconnect any existing connections before connecting
-    try:
-        self.project_drop_down.currentTextChanged.disconnect()
-    except TypeError:
-        pass
-    self.project_drop_down.currentTextChanged.connect(self.on_project_change)
-
-    # Search box
-    self.search_box.setEditable(True)
-    self.search_box.setInsertPolicy(PyQt6.QtWidgets.QComboBox.InsertPolicy.NoInsert)
-    hbox.addWidget(self.search_box)
-    self.search_box.currentTextChanged.connect(self.on_search_local)
-
-    # Search button
-    search_button = PyQt6.QtWidgets.QPushButton("🔎")
-    hbox.addWidget(search_button)
-    search_button.clicked.connect(self.on_click_search)
-
-    # Commits button
-    open_git_button = PyQt6.QtWidgets.QPushButton("Commits")
-    hbox.addWidget(open_git_button)
-    open_git_button.clicked.connect(self.on_show_commits)
-
-    # Add/New project button
-    add_project_button = PyQt6.QtWidgets.QPushButton('Add/ New Project', self)
-    hbox2.addWidget(add_project_button)
-    add_project_button.clicked.connect(self.create_new_project)
-
-    # Export button
-    export_button = PyQt6.QtWidgets.QPushButton("Export", self)
-    hbox2.addWidget(export_button)
-    export_button.clicked.connect(self.on_export_pdf)
-
-    # Edit button
-    edit_page_button = PyQt6.QtWidgets.QPushButton("Edit Page", self)
-    hbox2.addWidget(edit_page_button)
-    edit_page_button.clicked.connect(self.on_click_edit_page)
-
-    # Back button
-    page_back_btn = PyQt6.QtWidgets.QPushButton("Back", self)
-    hbox2.addWidget(page_back_btn)
-    page_back_btn.clicked.connect(self.on_back_btn)
-
-    # Layout assembly
-    vbox.addLayout(hbox)
-    vbox.addLayout(hbox2)
-    vbox.addWidget(self.web_engine_view)
-
-    main_widget = PyQt6.QtWidgets.QWidget()
-    main_widget.setLayout(vbox)
-    self.setCentralWidget(main_widget)
-
-    # Set window geometry
-    geometry = self.data.get("geometry", [300, 250, 900, 600])
-    self.setGeometry(geometry[0], geometry[1], geometry[2], geometry[3])
-
-    logger.info("Main window widgets created")
-
-
-def on_show_commits(self) -> None:
-    """Show git commit browser dialog."""
-    logger.info("Showing commit browser")
-
-    # Prevent multiple windows
-    if self.commit_browser is not None and self.commit_browser.isVisible():
-        self.commit_browser.activateWindow()
-        return
-
-    if not self.repo:
-        PyQt6.QtWidgets.QMessageBox.warning(
-            self, "Fehler", "Kein Repository geladen"
-        )
-        return
-
-    try:
-        log_text = self.repo.get_commit_log()
-    except Exception as e:
-        logger.error(f"Could not get git log: {e}")
-        PyQt6.QtWidgets.QMessageBox.warning(
-            self,
-            "Fehler",
-            f"Git-Log konnte nicht abgerufen werden:\n{e}"
-        )
-        return
-
-    # Create and show dialog (non-modal with .show())
-    self.commit_browser = commitbrowser.CommitBrowserDialog(log_text, self)
-    self.commit_browser.show()
-
-
-def on_search_local(self) -> None:
-    """Search in current page."""
-    search_text = self.search_box.currentText()
-    self.web_page.findText(search_text)
-
-
-def on_click_search(self) -> None:
-    """Perform semantic search across all files."""
-    search_text = self.search_box.currentText().lower()
-    logger.info(f"Search clicked for text: {search_text}")
-
-    if not search_text:
-        return
-
-    project_name = self.project_drop_down.currentText()
-    project_path = self.data.get("projects", {}).get(project_name, {}).get("path", "")
-
-    if not project_path:
-        logger.warning("No project path found")
-        return
-
-    if not self.repo:
-        logger.warning("No repository initialized")
-        return
-
-    base_url = PyQt6.QtCore.QUrl.fromLocalFile(project_path + os.path.sep)
-
-    # Add to search history
-    if self.search_box.findText(search_text) < 0:
-        self.search_box.addItem(search_text)
-
-    # Perform search
-    try:
-        file_list = self.repo.list_all_files()
-        search_result = notehelper.search_files(search_text, file_list, project_path)
-        html_text = notehelper.text_2_html(search_result)
-        self.web_page.setHtml(html_text, base_url)
-    except Exception as e:
-        logger.error(f"Search error: {e}")
-        PyQt6.QtWidgets.QMessageBox.warning(
-            self, "Fehler", f"Suchfehler:\n{e}"
-        )
-
-
-def load_page(self, file_name: Optional[str] = None) -> None:
-    """
-    Load and display a page.
-
-    Args:
-        file_name: Relative path to file, or None for index file
-    """
-    if not file_name:
-        file_name = self.data.get("index_file", "index.asciidoc")
-
-    project_name = self.project_drop_down.currentText()
-    logger.info(f"Loading page {file_name} from project {project_name}")
-
-    project = self.data.get("projects", {}).get(project_name)
-    if not project:
-        logger.error(f"Project {project_name} not found")
-        return
-
-    project_path = project.get("path")
-    if not project_path:
-        logger.error(f"No path for project {project_name}")
-        return
-
-    base_url = PyQt6.QtCore.QUrl.fromLocalFile(project_path + os.path.sep)
-    full_file_path = os.path.join(project_path, file_name)
-    full_file_path = os.path.normpath(full_file_path)
-
-    # Security check: ensure file is within project
-    try:
-        full_file_path_resolved = pathlib.Path(full_file_path).resolve()
-        project_path_resolved = pathlib.Path(project_path).resolve()
-        full_file_path_resolved.relative_to(project_path_resolved)
-    except ValueError:
-        logger.error(f"Security: File {full_file_path} outside project path")
-        PyQt6.QtWidgets.QMessageBox.warning(
-            self,
-            "Sicherheitsfehler",
-            "Die Datei liegt außerhalb des Projektverzeichnisses"
-        )
-        return
-
-    file_extension = file_name.split(".")[-1].lower()
-
-    # Handle different file types
-    if file_extension in ["htm", "html", "txt", "jpg", "png", "jpeg"]:
-        logger.info(f"Opening file in webview: {full_file_path}")
-        self.web_page.load(
-            PyQt6.QtCore.QUrl(pathlib.Path(full_file_path).absolute().as_uri())
-        )
-        return
-
-    if file_extension in ["pdf", "ppt", "doc", "docx"]:
-        logger.info(f"Opening file externally: {full_file_path}")
-        self.on_external_url(
-            PyQt6.QtCore.QUrl(pathlib.Path(full_file_path).absolute().as_uri())
-        )
-        return
-
-    # Handle AsciiDoc files
-    if file_extension in ["adoc", "asciidoc"]:
-        logger.info(f"Loading asciidoc page {full_file_path}")
-        self.current_file_name = file_name
-
+        # Disconnect any existing connections before connecting
         try:
-            with open(full_file_path, "r", encoding="utf-8") as ascii_file:
-                text_in = ascii_file.read()
-        except FileNotFoundError:
-            logger.warning(f"File {full_file_path} not found, creating new")
-            text_in = "== Empty page\n"
+            self.project_drop_down.currentTextChanged.disconnect()
+        except TypeError:
+            pass
+        self.project_drop_down.currentTextChanged.connect(self.on_project_change)
 
-            os.makedirs(os.path.dirname(full_file_path), exist_ok=True)
+        # Search box
+        self.search_box.setEditable(True)
+        self.search_box.setInsertPolicy(PyQt6.QtWidgets.QComboBox.InsertPolicy.NoInsert)
+        hbox.addWidget(self.search_box)
+        self.search_box.currentTextChanged.connect(self.on_search_local)
 
-            try:
-                with open(full_file_path, "w", encoding="utf-8") as ascii_file:
-                    ascii_file.write(text_in)
-                if self.repo:
-                    self.repo.add_file(file_name)
-            except IOError as e:
-                logger.error(f"Problem writing new file {full_file_path}: {e}")
-                PyQt6.QtWidgets.QMessageBox.critical(
-                    self, "Fehler", f"Datei konnte nicht erstellt werden:\n{e}"
-                )
-                return
-        except Exception as e:
-            logger.error(f"Error reading file {full_file_path}: {e}")
-            PyQt6.QtWidgets.QMessageBox.critical(
-                self, "Fehler", f"Datei konnte nicht gelesen werden:\n{e}"
+        # Search button
+        search_button = PyQt6.QtWidgets.QPushButton("🔎")
+        hbox.addWidget(search_button)
+        search_button.clicked.connect(self.on_click_search)
+
+        # Commits button
+        open_git_button = PyQt6.QtWidgets.QPushButton("Commits")
+        hbox.addWidget(open_git_button)
+        open_git_button.clicked.connect(self.on_show_commits)
+
+        # Add/New project button
+        add_project_button = PyQt6.QtWidgets.QPushButton('Add/ New Project', self)
+        hbox2.addWidget(add_project_button)
+        add_project_button.clicked.connect(self.create_new_project)
+
+        # Export button
+        export_button = PyQt6.QtWidgets.QPushButton("Export", self)
+        hbox2.addWidget(export_button)
+        export_button.clicked.connect(self.on_export_pdf)
+
+        # Edit button
+        edit_page_button = PyQt6.QtWidgets.QPushButton("Edit Page", self)
+        hbox2.addWidget(edit_page_button)
+        edit_page_button.clicked.connect(self.on_click_edit_page)
+
+        # Back button
+        page_back_btn = PyQt6.QtWidgets.QPushButton("Back", self)
+        hbox2.addWidget(page_back_btn)
+        page_back_btn.clicked.connect(self.on_back_btn)
+
+        # Layout assembly
+        vbox.addLayout(hbox)
+        vbox.addLayout(hbox2)
+        vbox.addWidget(self.web_engine_view)
+
+        main_widget = PyQt6.QtWidgets.QWidget()
+        main_widget.setLayout(vbox)
+        self.setCentralWidget(main_widget)
+
+        # Set window geometry
+        geometry = self.data.get("geometry", [300, 250, 900, 600])
+        self.setGeometry(geometry[0], geometry[1], geometry[2], geometry[3])
+
+        logger.info("Main window widgets created")
+
+    def on_show_commits(self) -> None:
+        """Show git commit browser dialog."""
+        logger.info("Showing commit browser")
+
+        # Prevent multiple windows
+        if self.commit_browser is not None and self.commit_browser.isVisible():
+            self.commit_browser.activateWindow()
+            return
+
+        if not self.repo:
+            PyQt6.QtWidgets.QMessageBox.warning(
+                self, "Fehler", "Kein Repository geladen"
             )
             return
 
         try:
-            html_text = notehelper.text_2_html(text_in)
-            self.web_page.setHtml(html_text, base_url)
+            log_text = self.repo.get_commit_log()
         except Exception as e:
-            logger.error(f"Error converting to HTML: {e}")
-            error_html = f"<h1>Conversion Error</h1><pre>{e}</pre>"
-            self.web_page.setHtml(error_html, base_url)
-
-
-def on_file_edited(self, file_name: str) -> None:
-    """
-    Handle file edit event.
-
-    Args:
-        file_name: Relative path to edited file
-    """
-    logger.info(f"Git update {file_name}")
-    if self.repo:
-        self.repo.update_file(file_name)
-
-
-def on_upload_file(self, file_name: str) -> None:
-    """
-    Handle file upload event.
-
-    Args:
-        file_name: Relative path to uploaded file
-    """
-    logger.info(f"Adding uploaded file {file_name} to git")
-    if self.repo:
-        self.repo.add_file(file_name)
-
-
-def on_click_edit_page(self) -> None:
-    """Open editor for current page."""
-    logger.info("Edit clicked")
-
-    project_name = self.project_drop_down.currentText()
-    project = self.data.get("projects", {}).get(project_name)
-
-    if not project:
-        logger.error(f"Project '{project_name}' not found")
-        return
-
-    if not self.current_file_name:
-        logger.warning("No file currently loaded to edit")
-        PyQt6.QtWidgets.QMessageBox.warning(
-            self, "Fehler", "Keine Datei zum Bearbeiten geladen"
-        )
-        return
-
-    file_name = self.current_file_name
-    file_extension = file_name.split(".")[-1].lower()
-
-    if file_extension in ["adoc", "asciidoc"]:
-        logger.info(f"Editing page {file_name}")
-        self.open_editor_window(project, project_name, file_name)
-    else:
-        logger.warning(f"Cannot edit file type: {file_extension}")
-        PyQt6.QtWidgets.QMessageBox.information(
-            self,
-            "Hinweis",
-            f"Dateityp '{file_extension}' kann nicht bearbeitet werden"
-        )
-
-
-def edit_page_window_geometry(self, geometry: tuple) -> None:
-    """
-    Save editor window geometry.
-
-    Args:
-        geometry: Tuple of (x, y, width, height)
-    """
-    self.data.update({"edit_window_geometry": geometry})
-
-
-def project_data_update(self, project_data: Dict) -> None:
-    """
-    Update project data.
-
-    Args:
-        project_data: Updated project data
-    """
-    project_name = self.project_drop_down.currentText()
-    logger.info(f"Updating project data for {project_name}")
-    self.data.get("projects", {}).update({project_name: project_data})
-
-
-def on_internal_url(self, url: PyQt6.QtCore.QUrl) -> None:
-    """
-    Handle internal file URL click.
-
-    Args:
-        url: Internal URL to open
-    """
-    logger.info(f"Opening internal URL: {url.toString()}")
-
-    try:
-        project_name = self.project_drop_down.currentText()
-        project_path_str = self.data.get("projects", {}).get(
-            project_name, {}
-        ).get("path", "")
-
-        if not project_path_str:
-            logger.error("No project path configured")
+            logger.error(f"Could not get git log: {e}")
+            PyQt6.QtWidgets.QMessageBox.warning(
+                self,
+                "Fehler",
+                f"Git-Log konnte nicht abgerufen werden:\n{e}"
+            )
             return
 
-        project_path = pathlib.Path(project_path_str).resolve()
-        url_path = pathlib.Path(url.toLocalFile()).resolve()
+        # Create and show dialog (non-modal with .show())
+        self.commit_browser = commitbrowser.CommitBrowserDialog(log_text, self)
+        self.commit_browser.show()
 
-        # Security check
+    def on_search_local(self) -> None:
+        """Search in current page."""
+        search_text = self.search_box.currentText()
+        self.web_page.findText(search_text)
+
+    def on_click_search(self) -> None:
+        """Perform semantic search across all files."""
+        search_text = self.search_box.currentText().lower()
+        logger.info(f"Search clicked for text: {search_text}")
+
+        if not search_text:
+            return
+
+        project_name = self.project_drop_down.currentText()
+        project_path = self.data.get("projects", {}).get(project_name, {}).get("path", "")
+
+        if not project_path:
+            logger.warning("No project path found")
+            return
+
+        if not self.repo:
+            logger.warning("No repository initialized")
+            return
+
+        base_url = PyQt6.QtCore.QUrl.fromLocalFile(project_path + os.path.sep)
+
+        # Add to search history
+        if self.search_box.findText(search_text) < 0:
+            self.search_box.addItem(search_text)
+
+        # Perform search
         try:
-            relative_path = url_path.relative_to(project_path)
+            file_list = self.repo.list_all_files()
+            search_result = notehelper.search_files(search_text, file_list, project_path)
+            html_text = notehelper.text_2_html(search_result)
+            self.web_page.setHtml(html_text, base_url)
+        except Exception as e:
+            logger.error(f"Search error: {e}")
+            PyQt6.QtWidgets.QMessageBox.warning(
+                self, "Fehler", f"Suchfehler:\n{e}"
+            )
+
+    def load_page(self, file_name: Optional[str] = None) -> None:
+        """
+        Load and display a page.
+
+        Args:
+            file_name: Relative path to file, or None for index file
+        """
+        if not file_name:
+            file_name = self.data.get("index_file", "index.asciidoc")
+
+        project_name = self.project_drop_down.currentText()
+        logger.info(f"Loading page {file_name} from project {project_name}")
+
+        project = self.data.get("projects", {}).get(project_name)
+        if not project:
+            logger.error(f"Project {project_name} not found")
+            return
+
+        project_path = project.get("path")
+        if not project_path:
+            logger.error(f"No path for project {project_name}")
+            return
+
+        base_url = PyQt6.QtCore.QUrl.fromLocalFile(project_path + os.path.sep)
+        full_file_path = os.path.join(project_path, file_name)
+        full_file_path = os.path.normpath(full_file_path)
+
+        # Security check: ensure file is within project
+        try:
+            full_file_path_resolved = pathlib.Path(full_file_path).resolve()
+            project_path_resolved = pathlib.Path(project_path).resolve()
+            full_file_path_resolved.relative_to(project_path_resolved)
         except ValueError:
-            logger.error(f"Security: Path {url_path} outside project {project_path}")
+            logger.error(f"Security: File {full_file_path} outside project path")
             PyQt6.QtWidgets.QMessageBox.warning(
                 self,
                 "Sicherheitsfehler",
@@ -762,115 +586,277 @@ def on_internal_url(self, url: PyQt6.QtCore.QUrl) -> None:
             )
             return
 
-        if not url_path.is_file():
-            logger.warning(f"File does not exist: {url_path}")
-            PyQt6.QtWidgets.QMessageBox.warning(
-                self, "Fehler", f"Datei nicht gefunden:\n{url_path}"
+        file_extension = file_name.split(".")[-1].lower()
+
+        # Handle different file types
+        if file_extension in ["htm", "html", "txt", "jpg", "png", "jpeg"]:
+            logger.info(f"Opening file in webview: {full_file_path}")
+            self.web_page.load(
+                PyQt6.QtCore.QUrl(pathlib.Path(full_file_path).absolute().as_uri())
             )
             return
 
-        file_name = str(relative_path)
-        logger.info(f"Loading relative page: {file_name}")
-        self.load_page(file_name)
+        if file_extension in ["pdf", "ppt", "doc", "docx"]:
+            logger.info(f"Opening file externally: {full_file_path}")
+            self.on_external_url(
+                PyQt6.QtCore.QUrl(pathlib.Path(full_file_path).absolute().as_uri())
+            )
+            return
 
-    except Exception as e:
-        logger.error(f"Error in on_internal_url: {e}")
-        PyQt6.QtWidgets.QMessageBox.critical(
-            self, "Fehler", f"Fehler beim Öffnen der Datei:\n{e}"
-        )
+        # Handle AsciiDoc files
+        if file_extension in ["adoc", "asciidoc"]:
+            logger.info(f"Loading asciidoc page {full_file_path}")
+            self.current_file_name = file_name
 
+            try:
+                with open(full_file_path, "r", encoding="utf-8") as ascii_file:
+                    text_in = ascii_file.read()
+            except FileNotFoundError:
+                logger.warning(f"File {full_file_path} not found, creating new")
+                text_in = "== Empty page\n"
 
-def on_back_btn(self) -> None:
-    """Navigate back in browser history."""
-    logger.info("Back button clicked")
-    self.web_page.triggerAction(
-        PyQt6.QtWebEngineCore.QWebEnginePage.WebAction.Back
-    )
+                os.makedirs(os.path.dirname(full_file_path), exist_ok=True)
 
+                try:
+                    with open(full_file_path, "w", encoding="utf-8") as ascii_file:
+                        ascii_file.write(text_in)
+                    if self.repo:
+                        self.repo.add_file(file_name)
+                except IOError as e:
+                    logger.error(f"Problem writing new file {full_file_path}: {e}")
+                    PyQt6.QtWidgets.QMessageBox.critical(
+                        self, "Fehler", f"Datei konnte nicht erstellt werden:\n{e}"
+                    )
+                    return
+            except Exception as e:
+                logger.error(f"Error reading file {full_file_path}: {e}")
+                PyQt6.QtWidgets.QMessageBox.critical(
+                    self, "Fehler", f"Datei konnte nicht gelesen werden:\n{e}"
+                )
+                return
 
-def on_export_pdf(self) -> None:
-    """Export current page to PDF."""
-    logger.info("Export clicked")
+            try:
+                html_text = notehelper.text_2_html(text_in)
+                self.web_page.setHtml(html_text, base_url)
+            except Exception as e:
+                logger.error(f"Error converting to HTML: {e}")
+                error_html = f"<h1>Conversion Error</h1><pre>{e}</pre>"
+                self.web_page.setHtml(error_html, base_url)
 
-    try:
-        export_dir = pathlib.Path.home() / "Downloads"
-        if not export_dir.exists():
-            export_dir = pathlib.Path.home()
-    except Exception:
-        export_dir = pathlib.Path.home()
+    def on_file_edited(self, file_name: str) -> None:
+        """
+        Handle file edit event.
 
-    export_dir_str = self.data.get("export_dir", str(export_dir))
-    export_dir = pathlib.Path(export_dir_str)
+        Args:
+            file_name: Relative path to edited file
+        """
+        logger.info(f"Git update {file_name}")
+        if self.repo:
+            self.repo.update_file(file_name)
 
-    current_page_name = pathlib.Path(self.web_page.url().fileName())
-    date_str = datetime.datetime.now().strftime("%Y-%m-%d")
+    def on_upload_file(self, file_name: str) -> None:
+        """
+        Handle file upload event.
 
-    file_name = f"{date_str}_{current_page_name.stem}.pdf"
-    default_pdf_path = export_dir / file_name
+        Args:
+            file_name: Relative path to uploaded file
+        """
+        logger.info(f"Adding uploaded file {file_name} to git")
+        if self.repo:
+            self.repo.add_file(file_name)
 
-    pdf_file_dialog = PyQt6.QtWidgets.QFileDialog.getSaveFileName(
-        self, "Save PDF file", str(default_pdf_path), "PDF (*.pdf)"
-    )
+    def on_click_edit_page(self) -> None:
+        """Open editor for current page."""
+        logger.info("Edit clicked")
 
-    if pdf_file_dialog and pdf_file_dialog[0]:
-        pdf_file_path_str = pdf_file_dialog[0]
-        export_parent_dir = str(pathlib.Path(pdf_file_path_str).parent)
-        self.data.update({"export_dir": export_parent_dir})
+        project_name = self.project_drop_down.currentText()
+        project = self.data.get("projects", {}).get(project_name)
+
+        if not project:
+            logger.error(f"Project '{project_name}' not found")
+            return
+
+        if not self.current_file_name:
+            logger.warning("No file currently loaded to edit")
+            PyQt6.QtWidgets.QMessageBox.warning(
+                self, "Fehler", "Keine Datei zum Bearbeiten geladen"
+            )
+            return
+
+        file_name = self.current_file_name
+        file_extension = file_name.split(".")[-1].lower()
+
+        if file_extension in ["adoc", "asciidoc"]:
+            logger.info(f"Editing page {file_name}")
+            self.open_editor_window(project, project_name, file_name)
+        else:
+            logger.warning(f"Cannot edit file type: {file_extension}")
+            PyQt6.QtWidgets.QMessageBox.information(
+                self,
+                "Hinweis",
+                f"Dateityp '{file_extension}' kann nicht bearbeitet werden"
+            )
+
+    def edit_page_window_geometry(self, geometry: tuple) -> None:
+        """
+        Save editor window geometry.
+
+        Args:
+            geometry: Tuple of (x, y, width, height)
+        """
+        self.data.update({"edit_window_geometry": geometry})
+
+    def project_data_update(self, project_data: Dict) -> None:
+        """
+        Update project data.
+
+        Args:
+            project_data: Updated project data
+        """
+        project_name = self.project_drop_down.currentText()
+        logger.info(f"Updating project data for {project_name}")
+        self.data.get("projects", {}).update({project_name: project_data})
+
+    def on_internal_url(self, url: PyQt6.QtCore.QUrl) -> None:
+        """
+        Handle internal file URL click.
+
+        Args:
+            url: Internal URL to open
+        """
+        logger.info(f"Opening internal URL: {url.toString()}")
 
         try:
-            self.web_engine_view.page().printToPdf(pdf_file_path_str)
-            logger.info(f"Page exported to {pdf_file_path_str}")
+            project_name = self.project_drop_down.currentText()
+            project_path_str = self.data.get("projects", {}).get(
+                project_name, {}
+            ).get("path", "")
+
+            if not project_path_str:
+                logger.error("No project path configured")
+                return
+
+            project_path = pathlib.Path(project_path_str).resolve()
+            url_path = pathlib.Path(url.toLocalFile()).resolve()
+
+            # Security check
+            try:
+                relative_path = url_path.relative_to(project_path)
+            except ValueError:
+                logger.error(f"Security: Path {url_path} outside project {project_path}")
+                PyQt6.QtWidgets.QMessageBox.warning(
+                    self,
+                    "Sicherheitsfehler",
+                    "Die Datei liegt außerhalb des Projektverzeichnisses"
+                )
+                return
+
+            if not url_path.is_file():
+                logger.warning(f"File does not exist: {url_path}")
+                PyQt6.QtWidgets.QMessageBox.warning(
+                    self, "Fehler", f"Datei nicht gefunden:\n{url_path}"
+                )
+                return
+
+            file_name = str(relative_path)
+            logger.info(f"Loading relative page: {file_name}")
+            self.load_page(file_name)
+
         except Exception as e:
-            logger.error(f"PDF export failed: {e}")
+            logger.error(f"Error in on_internal_url: {e}")
             PyQt6.QtWidgets.QMessageBox.critical(
-                self, "Fehler", f"PDF-Export fehlgeschlagen:\n{e}"
+                self, "Fehler", f"Fehler beim Öffnen der Datei:\n{e}"
             )
-    else:
-        logger.warning("PDF export cancelled")
 
+    def on_back_btn(self) -> None:
+        """Navigate back in browser history."""
+        logger.info("Back button clicked")
+        self.web_page.triggerAction(
+            PyQt6.QtWebEngineCore.QWebEnginePage.WebAction.Back
+        )
 
-@PyQt6.QtCore.pyqtSlot(PyQt6.QtGui.QCloseEvent)
-def closeEvent(self, event: PyQt6.QtGui.QCloseEvent) -> None:
-    """
-    Handle application close event.
+    def on_export_pdf(self) -> None:
+        """Export current page to PDF."""
+        logger.info("Export clicked")
 
-    Args:
-        event: Close event
-    """
-    logger.info("Closing the notebook window")
+        try:
+            export_dir = pathlib.Path.home() / "Downloads"
+            if not export_dir.exists():
+                export_dir = pathlib.Path.home()
+        except Exception:
+            export_dir = pathlib.Path.home()
 
-    # Save geometry
-    geometry = self.geometry().getRect()
-    self.data.update({"geometry": geometry})
+        export_dir_str = self.data.get("export_dir", str(export_dir))
+        export_dir = pathlib.Path(export_dir_str)
 
-    # Write config
-    self.write_config()
+        current_page_name = pathlib.Path(self.web_page.url().fileName())
+        date_str = datetime.datetime.now().strftime("%Y-%m-%d")
 
-    # Cleanup repository
-    if self.repo:
-        self.repo.cleanup()
+        file_name = f"{date_str}_{current_page_name.stem}.pdf"
+        default_pdf_path = export_dir / file_name
 
-    # Cleanup web view
-    if self.web_engine_view:
-        self.web_engine_view.setPage(None)
-        self.web_engine_view.deleteLater()
-        self.web_engine_view = None
+        pdf_file_dialog = PyQt6.QtWidgets.QFileDialog.getSaveFileName(
+            self, "Save PDF file", str(default_pdf_path), "PDF (*.pdf)"
+        )
 
-    if self.web_page:
-        self.web_page.deleteLater()
-        self.web_page = None
+        if pdf_file_dialog and pdf_file_dialog[0]:
+            pdf_file_path_str = pdf_file_dialog[0]
+            export_parent_dir = str(pathlib.Path(pdf_file_path_str).parent)
+            self.data.update({"export_dir": export_parent_dir})
 
-    # Cleanup editor window
-    if self.edit_page_window:
-        self.edit_page_window.close()
-        self.edit_page_window.deleteLater()
-        self.edit_page_window = None
+            try:
+                self.web_engine_view.page().printToPdf(pdf_file_path_str)
+                logger.info(f"Page exported to {pdf_file_path_str}")
+            except Exception as e:
+                logger.error(f"PDF export failed: {e}")
+                PyQt6.QtWidgets.QMessageBox.critical(
+                    self, "Fehler", f"PDF-Export fehlgeschlagen:\n{e}"
+                )
+        else:
+            logger.warning("PDF export cancelled")
 
-    # Cleanup commit browser
-    if self.commit_browser:
-        self.commit_browser.close()
-        self.commit_browser.deleteLater()
-        self.commit_browser = None
+    @PyQt6.QtCore.pyqtSlot(PyQt6.QtGui.QCloseEvent)
+    def closeEvent(self, event: PyQt6.QtGui.QCloseEvent) -> None:
+        """
+        Handle application close event.
+
+        Args:
+            event: Close event
+        """
+        logger.info("Closing the notebook window")
+
+        # Save geometry
+        geometry = self.geometry().getRect()
+        self.data.update({"geometry": geometry})
+
+        # Write config
+        self.write_config()
+
+        # Cleanup repository
+        if self.repo:
+            self.repo.cleanup()
+
+        # Cleanup web view
+        if self.web_engine_view:
+            self.web_engine_view.setPage(None)
+            self.web_engine_view.deleteLater()
+            self.web_engine_view = None
+
+        if self.web_page:
+            self.web_page.deleteLater()
+            self.web_page = None
+
+        # Cleanup editor window
+        if self.edit_page_window:
+            self.edit_page_window.close()
+            self.edit_page_window.deleteLater()
+            self.edit_page_window = None
+
+        # Cleanup commit browser
+        if self.commit_browser:
+            self.commit_browser.close()
+            self.commit_browser.deleteLater()
+            self.commit_browser = None
 
 
 class NotebookApp:

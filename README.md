@@ -190,12 +190,11 @@ Follow PEP 8 guidelines. Use type hints where appropriate.
 
 - [ ] Full-text search indexing
 - [ ] Markdown support
-- [ ] Image preview in editor
-- [ ] Collaborative editing
-- [ ] Cloud sync support
 - [ ] Mobile companion app
-- [ ] Plugin system
-- [ ] Dark mode
+- [ ] Easy image insert
+- [ ] show git merge error
+- [ ] let user change git address and branch
+- [ ] provide app as appimage, exe, ...
 
 ## License
 

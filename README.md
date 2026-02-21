@@ -1,4 +1,4 @@
-# ThaNote - Python Notebook Application
+# VaultNotebook - Python Notebook Application
 
 A local documentation wiki built with Python, PyQt6, AsciiDoc, and Git.
 

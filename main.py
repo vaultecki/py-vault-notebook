@@ -27,6 +27,7 @@ import notehelper
 import commitbrowser
 import gitconfig
 import historyviewer
+import graphview
 
 logger = logging.getLogger(__name__)
 
@@ -455,6 +456,12 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
         special_button.setToolTip("Wiki Wartung - Verwaiste und gewünschte Seiten")
         hbox.addWidget(special_button)
         special_button.clicked.connect(self.on_show_special_page)
+        
+        # Graph view button
+        graph_button = PyQt6.QtWidgets.QPushButton("📊")
+        graph_button.setToolTip("Graph-Ansicht - Wiki-Struktur visualisieren")
+        hbox.addWidget(graph_button)
+        graph_button.clicked.connect(self.on_show_graph_view)
 
         # Add/New project button
         add_project_button = PyQt6.QtWidgets.QPushButton('Add/ New Project', self)
@@ -607,6 +614,44 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
                 self, 
                 "Fehler", 
                 f"Spezialseite konnte nicht generiert werden:\n{e}"
+            )
+
+    def on_show_graph_view(self) -> None:
+        """Show interactive graph visualization of wiki structure."""
+        logger.info("Generating graph visualization")
+        
+        if not self.repo:
+            PyQt6.QtWidgets.QMessageBox.warning(
+                self, "Fehler", "Kein Repository geladen"
+            )
+            return
+        
+        project_name = self.project_drop_down.currentText()
+        project_path = self.data.get("projects", {}).get(project_name, {}).get("path", "")
+        
+        if not project_path:
+            logger.warning("No project path found")
+            return
+        
+        try:
+            # Get all files
+            file_list = self.repo.list_all_files()
+            
+            # Generate graph HTML
+            graph_html = graphview.generate_graph_html(file_list, project_path)
+            
+            # Display in web view
+            base_url = PyQt6.QtCore.QUrl.fromLocalFile(project_path + os.path.sep)
+            self.web_page.setHtml(graph_html, base_url)
+            
+            logger.info("Graph view generated successfully")
+            
+        except Exception as e:
+            logger.error(f"Error generating graph view: {e}")
+            PyQt6.QtWidgets.QMessageBox.critical(
+                self, 
+                "Fehler", 
+                f"Graph-Ansicht konnte nicht generiert werden:\n{e}"
             )
 
     def on_search_local(self) -> None:
@@ -861,34 +906,23 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
                 logger.warning(f"File does not exist: {url_path}")
                 file_name = str(relative_path)
                 
-                # Ask user if they want to create the file
-                msg_box = PyQt6.QtWidgets.QMessageBox()
-                msg_box.setIcon(PyQt6.QtWidgets.QMessageBox.Icon.Question)
-                msg_box.setWindowTitle("Datei nicht gefunden")
-                msg_box.setText(f"Die Datei existiert nicht:\n{file_name}")
-                msg_box.setInformativeText("Möchten Sie die Datei jetzt anlegen?")
+                # Ask user if they want to create the file with template selection
+                dialog = NewFileDialog(file_name, self)
                 
-                create_btn = msg_box.addButton("Anlegen", PyQt6.QtWidgets.QMessageBox.ButtonRole.AcceptRole)
-                cancel_btn = msg_box.addButton("Abbrechen", PyQt6.QtWidgets.QMessageBox.ButtonRole.RejectRole)
-                msg_box.setDefaultButton(create_btn)
-                
-                msg_box.exec()
-                
-                if msg_box.clickedButton() == create_btn:
+                if dialog.exec() == PyQt6.QtWidgets.QDialog.DialogCode.Accepted:
+                    template_name = dialog.get_selected_template()
+                    
                     # Create the new file
                     try:
                         # Create directory if needed
                         url_path.parent.mkdir(parents=True, exist_ok=True)
                         
-                        # Extract filename without extension for title
-                        file_stem = url_path.stem
-                        
-                        # Create initial content
-                        initial_content = f"== {file_stem}\n\n"
+                        # Get template content
+                        initial_content = self._get_template_content(template_name, url_path.stem)
                         
                         # Write file
                         url_path.write_text(initial_content, encoding="utf-8")
-                        logger.info(f"Created new file: {url_path}")
+                        logger.info(f"Created new file from template '{template_name}': {url_path}")
                         
                         # Add to git
                         if self.repo:
@@ -955,12 +989,177 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
                     self.current_file_name = file_name
                     logger.debug(f"Current file updated to: {file_name}")
                     
+                    # Update breadcrumb
+                    self._update_breadcrumb(file_name)
+                    
             except ValueError:
                 # File outside project, don't update current_file_name
                 pass
                 
         except Exception as e:
             logger.debug(f"Could not update current file from URL: {e}")
+
+    def _get_template_content(self, template_name: str, title: str) -> str:
+        """
+        Get content for a template.
+        
+        Args:
+            template_name: Name of the template
+            title: Title for the document (filename without extension)
+            
+        Returns:
+            Template content as string
+        """
+        import datetime
+        
+        today = datetime.date.today().strftime("%Y-%m-%d")
+        
+        templates = {
+            "empty": f"== {title}\n\n",
+            
+            "meeting": f"""= Meeting: {title}
+:date: {today}
+:attendees: 
+
+== Agenda
+
+* 
+* 
+
+== Diskussion
+
+
+
+== Entscheidungen
+
+* 
+
+== Nächste Schritte
+
+* [ ] 
+* [ ] 
+
+== Notizen
+
+""",
+            
+            "project": f"""= Projekt: {title}
+:date: {today}
+:status: In Planung
+:owner: 
+
+== Übersicht
+
+Kurze Beschreibung des Projekts.
+
+== Ziele
+
+* 
+* 
+
+== Stakeholder
+
+* 
+* 
+
+== Zeitplan
+
+|===
+|Phase |Start |Ende |Status
+
+|Planung
+|{today}
+|
+|In Arbeit
+
+|Umsetzung
+|
+|
+|Geplant
+
+|Abschluss
+|
+|
+|Geplant
+|===
+
+== Ressourcen
+
+* 
+
+== Risiken
+
+* 
+
+== Links
+
+* 
+
+""",
+            
+            "person": f"""= Person: {title}
+
+== Kontakt
+
+* E-Mail: 
+* Telefon: 
+* Position: 
+
+== Notizen
+
+
+
+== Meetings
+
+* link:meetings/[Meeting-Notizen]
+
+== Projekte
+
+* 
+
+""",
+            
+            "howto": f"""= How-To: {title}
+:date: {today}
+
+== Überblick
+
+Kurze Beschreibung was dieses How-To erklärt.
+
+== Voraussetzungen
+
+* 
+* 
+
+== Schritt-für-Schritt
+
+=== Schritt 1: 
+
+Beschreibung...
+
+[source,bash]
+----
+# Kommandos hier
+----
+
+=== Schritt 2: 
+
+Beschreibung...
+
+== Troubleshooting
+
+=== Problem: 
+
+Lösung:
+
+== Siehe auch
+
+* 
+
+"""
+        }
+        
+        return templates.get(template_name, templates["empty"])
 
     def on_export_pdf(self) -> None:
         """Export current page to PDF."""
@@ -1044,6 +1243,91 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
             self.commit_browser.close()
             self.commit_browser.deleteLater()
             self.commit_browser = None
+
+
+class NewFileDialog(PyQt6.QtWidgets.QDialog):
+    """Dialog for creating a new file with template selection."""
+    
+    def __init__(self, file_name: str, parent=None):
+        """
+        Initialize new file dialog.
+        
+        Args:
+            file_name: Suggested filename
+            parent: Parent widget
+        """
+        super().__init__(parent)
+        self.setWindowTitle("Neue Datei anlegen")
+        self.setMinimumWidth(500)
+        
+        layout = PyQt6.QtWidgets.QVBoxLayout(self)
+        
+        # File info
+        info_label = PyQt6.QtWidgets.QLabel(f"Datei: <b>{file_name}</b>")
+        layout.addWidget(info_label)
+        
+        layout.addWidget(PyQt6.QtWidgets.QLabel(""))  # Spacer
+        
+        # Template selection
+        template_label = PyQt6.QtWidgets.QLabel("Template auswählen:")
+        layout.addWidget(template_label)
+        
+        self.template_group = PyQt6.QtWidgets.QButtonGroup()
+        
+        templates = [
+            ("empty", "Leer (nur Titel)", "Leere Seite mit Titel-Überschrift"),
+            ("meeting", "Meeting-Notizen", "Agenda, Diskussion, Entscheidungen, Nächste Schritte"),
+            ("project", "Projekt", "Übersicht, Ziele, Zeitplan, Ressourcen"),
+            ("person", "Person", "Kontaktdaten, Notizen, Meetings, Projekte"),
+            ("howto", "How-To / Tutorial", "Schritt-für-Schritt Anleitung mit Code-Beispielen")
+        ]
+        
+        for i, (template_id, name, description) in enumerate(templates):
+            radio = PyQt6.QtWidgets.QRadioButton(name)
+            radio.setProperty("template_id", template_id)
+            
+            # Add description as tooltip
+            radio.setToolTip(description)
+            
+            self.template_group.addButton(radio, i)
+            layout.addWidget(radio)
+            
+            # Add description label
+            desc_label = PyQt6.QtWidgets.QLabel(f"    → {description}")
+            desc_label.setStyleSheet("color: #666; font-size: 10px;")
+            layout.addWidget(desc_label)
+        
+        # Set first option as default
+        self.template_group.button(0).setChecked(True)
+        
+        layout.addStretch()
+        
+        # Buttons
+        button_layout = PyQt6.QtWidgets.QHBoxLayout()
+        button_layout.addStretch()
+        
+        cancel_btn = PyQt6.QtWidgets.QPushButton("Abbrechen")
+        cancel_btn.clicked.connect(self.reject)
+        button_layout.addWidget(cancel_btn)
+        
+        create_btn = PyQt6.QtWidgets.QPushButton("Anlegen")
+        create_btn.clicked.connect(self.accept)
+        create_btn.setDefault(True)
+        button_layout.addWidget(create_btn)
+        
+        layout.addLayout(button_layout)
+    
+    def get_selected_template(self) -> str:
+        """
+        Get the selected template ID.
+        
+        Returns:
+            Template ID string
+        """
+        checked_button = self.template_group.checkedButton()
+        if checked_button:
+            return checked_button.property("template_id")
+        return "empty"
 
 
 class NotebookApp:

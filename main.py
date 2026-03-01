@@ -437,6 +437,12 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
         open_git_button = PyQt6.QtWidgets.QPushButton("Commits")
         hbox.addWidget(open_git_button)
         open_git_button.clicked.connect(self.on_show_commits)
+        
+        # Special page button
+        special_button = PyQt6.QtWidgets.QPushButton("🔧")
+        special_button.setToolTip("Wiki Wartung - Verwaiste und gewünschte Seiten")
+        hbox.addWidget(special_button)
+        special_button.clicked.connect(self.on_show_special_page)
 
         # Add/New project button
         add_project_button = PyQt6.QtWidgets.QPushButton('Add/ New Project', self)
@@ -502,6 +508,47 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
         # Create and show dialog (non-modal with .show())
         self.commit_browser = commitbrowser.CommitBrowserDialog(log_text, self)
         self.commit_browser.show()
+
+    def on_show_special_page(self) -> None:
+        """Show special maintenance page with orphaned and wanted pages."""
+        logger.info("Generating special maintenance page")
+        
+        if not self.repo:
+            PyQt6.QtWidgets.QMessageBox.warning(
+                self, "Fehler", "Kein Repository geladen"
+            )
+            return
+        
+        project_name = self.project_drop_down.currentText()
+        project_path = self.data.get("projects", {}).get(project_name, {}).get("path", "")
+        
+        if not project_path:
+            logger.warning("No project path found")
+            return
+        
+        try:
+            # Get all files
+            file_list = self.repo.list_all_files()
+            
+            # Generate special page content
+            special_content = notehelper.generate_special_page(file_list, project_path)
+            
+            # Convert to HTML
+            html_text = notehelper.text_2_html(special_content)
+            
+            # Display in web view
+            base_url = PyQt6.QtCore.QUrl.fromLocalFile(project_path + os.path.sep)
+            self.web_page.setHtml(html_text, base_url)
+            
+            logger.info("Special page generated successfully")
+            
+        except Exception as e:
+            logger.error(f"Error generating special page: {e}")
+            PyQt6.QtWidgets.QMessageBox.critical(
+                self, 
+                "Fehler", 
+                f"Spezialseite konnte nicht generiert werden:\n{e}"
+            )
 
     def on_search_local(self) -> None:
         """Search in current page."""
@@ -753,9 +800,53 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
 
             if not url_path.is_file():
                 logger.warning(f"File does not exist: {url_path}")
-                PyQt6.QtWidgets.QMessageBox.warning(
-                    self, "Fehler", f"Datei nicht gefunden:\n{url_path}"
-                )
+                file_name = str(relative_path)
+                
+                # Ask user if they want to create the file
+                msg_box = PyQt6.QtWidgets.QMessageBox()
+                msg_box.setIcon(PyQt6.QtWidgets.QMessageBox.Icon.Question)
+                msg_box.setWindowTitle("Datei nicht gefunden")
+                msg_box.setText(f"Die Datei existiert nicht:\n{file_name}")
+                msg_box.setInformativeText("Möchten Sie die Datei jetzt anlegen?")
+                
+                create_btn = msg_box.addButton("Anlegen", PyQt6.QtWidgets.QMessageBox.ButtonRole.AcceptRole)
+                cancel_btn = msg_box.addButton("Abbrechen", PyQt6.QtWidgets.QMessageBox.ButtonRole.RejectRole)
+                msg_box.setDefaultButton(create_btn)
+                
+                msg_box.exec()
+                
+                if msg_box.clickedButton() == create_btn:
+                    # Create the new file
+                    try:
+                        # Create directory if needed
+                        url_path.parent.mkdir(parents=True, exist_ok=True)
+                        
+                        # Extract filename without extension for title
+                        file_stem = url_path.stem
+                        
+                        # Create initial content
+                        initial_content = f"== {file_stem}\n\n"
+                        
+                        # Write file
+                        url_path.write_text(initial_content, encoding="utf-8")
+                        logger.info(f"Created new file: {url_path}")
+                        
+                        # Add to git
+                        if self.repo:
+                            self.repo.add_file(file_name)
+                        
+                        # Load the newly created page
+                        self.load_page(file_name)
+                        
+                    except Exception as e:
+                        logger.error(f"Failed to create file: {e}")
+                        PyQt6.QtWidgets.QMessageBox.critical(
+                            self, 
+                            "Fehler", 
+                            f"Datei konnte nicht erstellt werden:\n{e}"
+                        )
+                else:
+                    logger.info("User cancelled file creation")
                 return
 
             file_name = str(relative_path)

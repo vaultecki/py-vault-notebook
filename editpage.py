@@ -1,6 +1,3 @@
-# Copyright [2025] [ecki]
-# SPDX-License-Identifier: Apache-2.0
-
 """
 Edit page for AsciiDoc documents with syntax checking and file management.
 """
@@ -25,7 +22,7 @@ logger = logging.getLogger(__name__)
 class EditPage(PyQt6.QtWidgets.QWidget):
     """
     Editor widget for AsciiDoc files with integrated Git support.
-
+    
     Signals:
         ascii_file_changed: Emitted when file is saved (str: filename)
         project_data_changed: Emitted when project data changes (dict)
@@ -52,6 +49,12 @@ class EditPage(PyQt6.QtWidgets.QWidget):
         # UI
         main_layout = PyQt6.QtWidgets.QVBoxLayout()
         self.text_field = PyQt6.QtWidgets.QPlainTextEdit()
+        
+        # Enable drag and drop for images
+        self.text_field.setAcceptDrops(True)
+        self.text_field.dragEnterEvent = self.dragEnterEvent
+        self.text_field.dropEvent = self.dropEvent
+        
         main_layout.addWidget(self.text_field)
         main_layout.addWidget(self._init_format_field())
 
@@ -76,7 +79,7 @@ class EditPage(PyQt6.QtWidgets.QWidget):
     def set_geometry(self, geometry: tuple) -> None:
         """
         Set window geometry.
-
+        
         Args:
             geometry: Tuple of (x, y, width, height)
         """
@@ -86,7 +89,7 @@ class EditPage(PyQt6.QtWidgets.QWidget):
     def _init_format_field(self) -> PyQt6.QtWidgets.QWidget:
         """
         Initialize the toolbar with format and action buttons.
-
+        
         Returns:
             Widget containing the toolbar
         """
@@ -132,16 +135,16 @@ class EditPage(PyQt6.QtWidgets.QWidget):
         """Discard unsaved changes and reload original content."""
         if not self.changed:
             return
-
+            
         reply = PyQt6.QtWidgets.QMessageBox.question(
-            self,
+            self, 
             "Text verwerfen",
             "Wollen Sie den Text wirklich verwerfen?",
-            PyQt6.QtWidgets.QMessageBox.StandardButton.Yes |
+            PyQt6.QtWidgets.QMessageBox.StandardButton.Yes | 
             PyQt6.QtWidgets.QMessageBox.StandardButton.No,
             PyQt6.QtWidgets.QMessageBox.StandardButton.No
         )
-
+        
         if reply == PyQt6.QtWidgets.QMessageBox.StandardButton.Yes:
             logger.info("Discarding changes")
             self.text_field.clear()
@@ -152,14 +155,14 @@ class EditPage(PyQt6.QtWidgets.QWidget):
     def on_show_docs(self) -> None:
         """Show dialog to select and insert link to internal document."""
         logger.info("Show docs clicked")
-
+        
         selected_file = docbrowser.DocBrowserDialog.get_selected_file(
             self.file_list, self
         )
-
+        
         if not selected_file:
             return
-
+            
         try:
             # Calculate relative path from current file to selected file
             current_dir = str(pathlib.Path(self.file_name).parent)
@@ -182,33 +185,33 @@ class EditPage(PyQt6.QtWidgets.QWidget):
     def on_upload(self) -> None:
         """Upload a file to the project directory."""
         logger.info("Upload clicked")
-
+        
         # Determine import directory
         import_dir = os.path.expanduser("~")
         if os.name in ["nt", "windows"]:
             import_dir = os.path.join(import_dir, "Downloads")
         else:
             import_dir = os.path.join(import_dir, "Downloads")
-
+            
         import_dir = self.project_data.get("import_dir", import_dir)
-
+        
         # Select file to upload
         import_file_tuple = PyQt6.QtWidgets.QFileDialog.getOpenFileName(
             self, "Import file", import_dir, "*"
         )
-
+        
         if not import_file_tuple or not import_file_tuple[0]:
             logger.warning("No file selected for upload")
             return
-
+            
         import_file = import_file_tuple[0]
         file_name = os.path.basename(import_file)
         import_dir = os.path.dirname(import_file)
-
+        
         # Update import directory in project data
         self.project_data.update({"import_dir": import_dir})
         self.project_data_changed.emit(self.project_data)
-
+        
         # Get project path
         copy_dir = self.project_data.get("path")
         if not copy_dir:
@@ -217,19 +220,19 @@ class EditPage(PyQt6.QtWidgets.QWidget):
                 self, "Fehler", "Kein Projektpfad gesetzt"
             )
             return
-
+            
         # Select target location
         default_target = os.path.join(copy_dir, file_name)
         copy_file_tuple = PyQt6.QtWidgets.QFileDialog.getSaveFileName(
             self, "Save file to project path", default_target, "*"
         )
-
+        
         if not copy_file_tuple or not copy_file_tuple[0]:
             logger.warning("No target location selected")
             return
-
+            
         copy_file = copy_file_tuple[0]
-
+        
         try:
             target_path = pathlib.Path(copy_file).resolve()
             project_path = pathlib.Path(copy_dir).resolve()
@@ -237,21 +240,21 @@ class EditPage(PyQt6.QtWidgets.QWidget):
             # Ensure target is within project directory
             relative_path = target_path.relative_to(project_path)
             file_name_for_git = str(relative_path)
-
+            
             # Create target directory if needed
             target_path.parent.mkdir(parents=True, exist_ok=True)
 
             # Copy file
             shutil.copy(import_file, target_path)
             logger.info(f"File {import_file} copied to {target_path}")
-
+            
             # Notify about new file
             self.project_new_file.emit(file_name_for_git)
-
+            
         except ValueError:
             logger.error(f"Error: Target file {copy_file} not in project path {copy_dir}")
             PyQt6.QtWidgets.QMessageBox.warning(
-                self,
+                self, 
                 "Pfad-Fehler",
                 "Die Datei muss innerhalb des Projektverzeichnisses gespeichert werden."
             )
@@ -264,20 +267,20 @@ class EditPage(PyQt6.QtWidgets.QWidget):
     def on_click_info(self) -> None:
         """Open AsciiDoc syntax reference in browser."""
         logger.info("Info clicked")
-
+        
         url = PyQt6.QtCore.QUrl(
             "https://docs.asciidoctor.org/asciidoc/latest/syntax-quick-reference/"
         )
-
+        
         reply = PyQt6.QtWidgets.QMessageBox.question(
-            self,
+            self, 
             "Syntax Information",
             f"Open AsciiDoc Quick Reference {url.toString()}",
-            PyQt6.QtWidgets.QMessageBox.StandardButton.Yes |
+            PyQt6.QtWidgets.QMessageBox.StandardButton.Yes | 
             PyQt6.QtWidgets.QMessageBox.StandardButton.No,
             PyQt6.QtWidgets.QMessageBox.StandardButton.No
         )
-
+        
         if reply == PyQt6.QtWidgets.QMessageBox.StandardButton.Yes:
             logger.debug("Opening link in external browser")
             PyQt6.QtGui.QDesktopServices.openUrl(url)
@@ -291,22 +294,22 @@ class EditPage(PyQt6.QtWidgets.QWidget):
         """Save changes to file and validate AsciiDoc syntax."""
         if not self.changed:
             return
-
+            
         if not self.project_data or not self.file_name:
             logger.error("Cannot save: missing project data or filename")
             PyQt6.QtWidgets.QMessageBox.warning(
                 self, "Fehler", "Keine Projektdaten oder Dateiname vorhanden"
             )
             return
-
+            
         text_file_path = os.path.join(
-            self.project_data.get("path", ""),
+            self.project_data.get("path", ""), 
             self.file_name
         )
         logger.debug(f"Saving changes to {text_file_path}")
-
+        
         text = self.text_field.toPlainText()
-
+        
         # Validate AsciiDoc syntax
         try:
             html_text = notehelper.text_2_html(text)
@@ -314,12 +317,12 @@ class EditPage(PyQt6.QtWidgets.QWidget):
         except Exception as e:
             logger.error(f"AsciiDoc syntax error: {e}")
             PyQt6.QtWidgets.QMessageBox.warning(
-                self,
+                self, 
                 "AsciiDoc Fehler",
                 f"Fehler in der AsciiDoc-Syntax:\n\n{e}"
             )
             return
-
+        
         # Write file
         try:
             with open(text_file_path, "w", encoding="utf-8") as text_file:
@@ -331,26 +334,26 @@ class EditPage(PyQt6.QtWidgets.QWidget):
                 self, "Fehler", f"Fehler beim Speichern:\n\n{e}"
             )
             return
-
+            
         self.changed = False
         self.ascii_file_changed.emit(self.file_name)
 
     def load_document(
-            self,
-            project_data: Dict,
-            project_name: str,
-            file_name: str,
-            file_list: List[str] = None
+        self, 
+        project_data: Dict, 
+        project_name: str, 
+        file_name: str, 
+        file_list: List[str] = None
     ) -> None:
         """
         Load a document into the editor.
-
+        
         Args:
             project_data: Project configuration dict
             project_name: Name of the project
             file_name: Relative path to the file
             file_list: List of all files in project (for doc browser)
-
+            
         Raises:
             TypeError: If required parameters are missing
         """
@@ -375,13 +378,13 @@ class EditPage(PyQt6.QtWidgets.QWidget):
     def _read_file_safely(self, path: pathlib.Path) -> str:
         """
         Safely read a text file with encoding fallback.
-
+        
         Args:
             path: Path to file
-
+            
         Returns:
             File content as string
-
+            
         Raises:
             FileNotFoundError: If file doesn't exist
         """
@@ -408,6 +411,151 @@ class EditPage(PyQt6.QtWidgets.QWidget):
         """Connect textChanged signal without risk of double-connecting."""
         self._safe_disconnect_text_signal()
         self.text_field.textChanged.connect(self.on_text_changed)
+
+    def dragEnterEvent(self, event: PyQt6.QtGui.QDragEnterEvent) -> None:
+        """
+        Handle drag enter event for images.
+        
+        Args:
+            event: Drag enter event
+        """
+        if event.mimeData().hasUrls():
+            # Check if at least one file is an image
+            for url in event.mimeData().urls():
+                file_path = url.toLocalFile()
+                if file_path.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg')):
+                    event.acceptProposedAction()
+                    return
+        event.ignore()
+
+    def dropEvent(self, event: PyQt6.QtGui.QDropEvent) -> None:
+        """
+        Handle drop event for images.
+        
+        Args:
+            event: Drop event
+        """
+        if not event.mimeData().hasUrls():
+            event.ignore()
+            return
+
+        if not self.project_data or not self.file_name:
+            PyQt6.QtWidgets.QMessageBox.warning(
+                self, 
+                "Fehler", 
+                "Kein Projekt geladen. Bitte erst ein Dokument öffnen."
+            )
+            event.ignore()
+            return
+
+        for url in event.mimeData().urls():
+            file_path = url.toLocalFile()
+            
+            # Check if it's an image
+            if not file_path.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg')):
+                continue
+            
+            try:
+                self._handle_image_drop(file_path)
+            except Exception as e:
+                logger.error(f"Error handling dropped image: {e}")
+                PyQt6.QtWidgets.QMessageBox.critical(
+                    self, 
+                    "Fehler", 
+                    f"Fehler beim Verarbeiten des Bildes:\n{e}"
+                )
+        
+        event.acceptProposedAction()
+
+    def _handle_image_drop(self, source_file_path: str) -> None:
+        """
+        Handle dropped image file.
+        
+        Args:
+            source_file_path: Path to the dropped image file
+        """
+        import_file = pathlib.Path(source_file_path)
+        file_name = import_file.name
+        
+        # Get project path
+        project_path_str = self.project_data.get("path")
+        if not project_path_str:
+            logger.error("No project path set")
+            return
+        
+        project_path = pathlib.Path(project_path_str)
+        
+        # Suggest saving in the same directory as the current file
+        current_file_path = project_path / self.file_name
+        current_file_dir = current_file_path.parent
+        suggested_target = current_file_dir / file_name
+        
+        # Show save dialog
+        target_file_tuple = PyQt6.QtWidgets.QFileDialog.getSaveFileName(
+            self,
+            "Bild speichern",
+            str(suggested_target),
+            "Images (*.png *.jpg *.jpeg *.gif *.bmp *.svg);;All Files (*)"
+        )
+        
+        if not target_file_tuple or not target_file_tuple[0]:
+            logger.info("User cancelled image save")
+            return
+        
+        target_file_path = pathlib.Path(target_file_tuple[0])
+        
+        try:
+            # Resolve paths for security check
+            target_resolved = target_file_path.resolve()
+            project_resolved = project_path.resolve()
+            
+            # Ensure target is within project
+            relative_path = target_resolved.relative_to(project_resolved)
+            
+            # Create target directory
+            target_resolved.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Copy the image
+            shutil.copy(import_file, target_resolved)
+            logger.info(f"Image copied to {target_resolved}")
+            
+            # Calculate relative path from current document to image
+            current_file_path = project_path / self.file_name
+            current_file_dir = current_file_path.parent
+            
+            try:
+                relative_image_path = target_resolved.relative_to(current_file_dir)
+            except ValueError:
+                # If not relative, use path from project root
+                relative_image_path = relative_path
+            
+            # Convert to forward slashes for AsciiDoc
+            relative_image_path_str = str(relative_image_path).replace(os.path.sep, '/')
+            
+            # Create AsciiDoc image link
+            image_link = f"image:{relative_image_path_str}[]"
+            
+            # Insert at cursor position
+            cursor = self.text_field.textCursor()
+            cursor.insertText(image_link)
+            self.text_field.setTextCursor(cursor)
+            self.text_field.setFocus()
+            
+            # Notify about new file for git
+            self.project_new_file.emit(str(relative_path))
+            
+            logger.info(f"Inserted image link: {image_link}")
+            
+        except ValueError:
+            logger.error(f"Target path {target_file_path} outside project")
+            PyQt6.QtWidgets.QMessageBox.warning(
+                self,
+                "Pfad-Fehler",
+                "Das Bild muss innerhalb des Projektverzeichnisses gespeichert werden."
+            )
+        except Exception as e:
+            logger.error(f"Error copying image: {e}")
+            raise
 
     def load_content(self) -> None:
         """Load file content into editor."""
@@ -445,16 +593,16 @@ class EditPage(PyQt6.QtWidgets.QWidget):
     def closeEvent(self, event: PyQt6.QtGui.QCloseEvent) -> None:
         """
         Handle window close event.
-
+        
         Args:
             event: Close event
         """
         logger.info("Trying to close window")
-
+        
         # Save geometry
         geometry = self.geometry().getRect()
         self.geometry_update.emit(geometry)
-
+        
         # Check for unsaved changes
         if self.changed:
             msg_box = PyQt6.QtWidgets.QMessageBox()
@@ -464,7 +612,7 @@ class EditPage(PyQt6.QtWidgets.QWidget):
                 PyQt6.QtWidgets.QMessageBox.StandardButton.Yes
             )
             yes_btn.setText("Speichern")
-
+            
             no_btn = msg_box.addButton(
                 PyQt6.QtWidgets.QMessageBox.StandardButton.No
             )
@@ -487,15 +635,15 @@ if __name__ == "__main__":
     logger.info("Testing EditPage...")
 
     app = PyQt6.QtWidgets.QApplication(sys.argv)
-
+    
     test_project_data = {
         "path": "/tmp/test_notebook",
         "create_date": 1734897219.1147738,
         "last_ascii_file": "index.asciidoc"
     }
-
+    
     ex = EditPage()
     ex.load_document(test_project_data, "test1", "index.asciidoc")
     ex.show()
-
+    
     sys.exit(app.exec())

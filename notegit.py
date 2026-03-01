@@ -1,6 +1,3 @@
-# Copyright [2025] [ecki]
-# SPDX-License-Identifier: Apache-2.0
-
 """
 Git wrapper for notebook application with thread-safe operations.
 """
@@ -28,7 +25,7 @@ class GitWorker(PyQt6.QtCore.QObject):
     def do_pull(self, project_path: str) -> None:
         """
         Executes 'git pull' for all remotes.
-
+        
         Args:
             project_path: Path to the git repository
         """
@@ -38,7 +35,7 @@ class GitWorker(PyQt6.QtCore.QObject):
                 logger.info("No remotes configured, skipping pull")
                 self.pull_finished.emit()
                 return
-
+                
             for remote in repo.remotes:
                 try:
                     logger.debug(f"Pulling from {remote.name} in background...")
@@ -55,7 +52,7 @@ class GitWorker(PyQt6.QtCore.QObject):
     def do_push(self, project_path: str) -> None:
         """
         Executes 'git push' for all remotes.
-
+        
         Args:
             project_path: Path to the git repository
         """
@@ -65,7 +62,7 @@ class GitWorker(PyQt6.QtCore.QObject):
                 logger.info("No remotes configured, skipping push")
                 self.push_finished.emit()
                 return
-
+                
             for remote in repo.remotes:
                 try:
                     logger.debug(f"Pushing to {remote.name} in background...")
@@ -81,7 +78,7 @@ class GitWorker(PyQt6.QtCore.QObject):
 class NoteGit(PyQt6.QtCore.QObject):
     """
     Main Git wrapper class with thread-safe operations.
-
+    
     Signals:
         trigger_push: Triggers a background push operation
         trigger_pull: Triggers a background pull operation
@@ -93,10 +90,10 @@ class NoteGit(PyQt6.QtCore.QObject):
     def __init__(self, project_path: str):
         """
         Initialize Git wrapper for given project path.
-
+        
         Args:
             project_path: Path to the project directory
-
+            
         Raises:
             ImportError: If repository cannot be initialized
         """
@@ -155,7 +152,7 @@ class NoteGit(PyQt6.QtCore.QObject):
         """Check if git repository has uncommitted changes and commit them."""
         if not self.repo:
             return
-
+            
         logger.info("Checking if git is dirty")
         if self.repo.is_dirty():
             logger.warning("Git repository has uncommitted changes")
@@ -170,7 +167,7 @@ class NoteGit(PyQt6.QtCore.QObject):
     def init_git(self, project_path: str) -> None:
         """
         Initialize a new git repository.
-
+        
         Args:
             project_path: Path where to initialize the repository
         """
@@ -189,7 +186,7 @@ class NoteGit(PyQt6.QtCore.QObject):
                 self.repo.index.add([str(target_gitignore)])
             else:
                 logger.warning(f"Template gitignore not found at {template_gitignore}")
-
+                
             self.repo.index.commit("Initial commit")
             self.repo_load_ok = True
         except Exception as e:
@@ -199,14 +196,14 @@ class NoteGit(PyQt6.QtCore.QObject):
     def add_file(self, file_name: str) -> None:
         """
         Add a new file to git and commit.
-
+        
         Args:
             file_name: Relative path of the file to add
         """
         if not self.repo:
             logger.error("Repository not initialized")
             return
-
+            
         logger.info(f"Adding file {file_name} to git")
         try:
             self.repo.index.add([file_name])
@@ -218,14 +215,14 @@ class NoteGit(PyQt6.QtCore.QObject):
     def update_file(self, file_name: str) -> None:
         """
         Update an existing file in git and commit.
-
+        
         Args:
             file_name: Relative path of the file to update
         """
         if not self.repo:
             logger.error("Repository not initialized")
             return
-
+            
         logger.info(f"Updating file {file_name}")
         try:
             self.repo.index.add([file_name])
@@ -242,14 +239,14 @@ class NoteGit(PyQt6.QtCore.QObject):
     def list_all_files(self) -> List[str]:
         """
         List all files tracked by git.
-
+        
         Returns:
             List of file paths relative to repository root
         """
         if not self.repo:
             logger.error("Repository not initialized")
             return []
-
+            
         try:
             files = self.repo.git.ls_files().split('\n')
             return [f for f in files if f]  # Filter empty strings
@@ -260,16 +257,16 @@ class NoteGit(PyQt6.QtCore.QObject):
     def get_commit_log(self, max_count: int = 50) -> str:
         """
         Get formatted commit log.
-
+        
         Args:
             max_count: Maximum number of commits to retrieve
-
+            
         Returns:
             Formatted string with commit history
         """
         if not self.repo_load_ok or not self.repo:
             return "Git repository not loaded."
-
+            
         try:
             log_format = "%h %ad | %s (%an)"
             date_format = "%Y-%m-%d %H:%M"
@@ -288,36 +285,36 @@ class NoteGit(PyQt6.QtCore.QObject):
         Clean shutdown of git thread. Must be called when closing the application.
         """
         logger.info("Shutting down Git thread...")
-
+        
         # Disconnect all signals to prevent further operations
         try:
             self.trigger_pull.disconnect()
             self.trigger_push.disconnect()
         except TypeError:
             pass  # Already disconnected
-
+        
         # Request thread to quit
         self.git_thread.quit()
-
+        
         # Wait with timeout
         if not self.git_thread.wait(5000):  # 5 seconds timeout
             logger.warning("Git thread did not stop gracefully, terminating...")
             self.git_thread.terminate()
             self.git_thread.wait(1000)  # Wait 1 more second after terminate
-
+            
         logger.info("Git thread shut down successfully")
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     logger.info("Testing NoteGit...")
-
+    
     # Example usage
     test_path = "/tmp/test_notebook"
     pathlib.Path(test_path).mkdir(exist_ok=True)
-
+    
     git_wrapper = NoteGit(test_path)
     print(f"Files: {git_wrapper.list_all_files()}")
-
+    
     # Cleanup
     git_wrapper.cleanup()

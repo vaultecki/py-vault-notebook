@@ -25,6 +25,8 @@ import editpage
 import notegit
 import notehelper
 import commitbrowser
+import gitconfig
+import historyviewer
 
 logger = logging.getLogger(__name__)
 
@@ -182,6 +184,7 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
         self.edit_page_window.geometry_update.connect(self.edit_page_window_geometry)
         self.edit_page_window.project_data_changed.connect(self.project_data_update)
         self.edit_page_window.show_commits_requested.connect(self.on_show_commits)
+        self.edit_page_window.show_history_requested.connect(self.on_show_file_history)
 
     def on_external_url(self, url: PyQt6.QtCore.QUrl) -> None:
         """
@@ -441,6 +444,12 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
         hbox.addWidget(open_git_button)
         open_git_button.clicked.connect(self.on_show_commits)
         
+        # Git config button
+        git_config_button = PyQt6.QtWidgets.QPushButton("⚙️")
+        git_config_button.setToolTip("Git Konfiguration - Remotes und Benutzer")
+        hbox.addWidget(git_config_button)
+        git_config_button.clicked.connect(self.on_show_git_config)
+        
         # Special page button
         special_button = PyQt6.QtWidgets.QPushButton("🔧")
         special_button.setToolTip("Wiki Wartung - Verwaiste und gewünschte Seiten")
@@ -511,6 +520,53 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
         # Create and show dialog (non-modal with .show())
         self.commit_browser = commitbrowser.CommitBrowserDialog(log_text, self)
         self.commit_browser.show()
+
+    def on_show_git_config(self) -> None:
+        """Show Git configuration dialog."""
+        logger.info("Showing Git configuration dialog")
+        
+        if not self.repo:
+            PyQt6.QtWidgets.QMessageBox.warning(
+                self, "Fehler", "Kein Repository geladen"
+            )
+            return
+        
+        try:
+            dialog = gitconfig.GitConfigDialog(self.repo, self)
+            dialog.exec()
+        except Exception as e:
+            logger.error(f"Error opening Git config dialog: {e}")
+            PyQt6.QtWidgets.QMessageBox.critical(
+                self,
+                "Fehler",
+                f"Git-Konfiguration konnte nicht geöffnet werden:\n{e}"
+            )
+
+    def on_show_file_history(self, file_name: str) -> None:
+        """
+        Show file history dialog.
+        
+        Args:
+            file_name: Relative path to file
+        """
+        logger.info(f"Showing file history for: {file_name}")
+        
+        if not self.repo:
+            PyQt6.QtWidgets.QMessageBox.warning(
+                self, "Fehler", "Kein Repository geladen"
+            )
+            return
+        
+        try:
+            dialog = historyviewer.HistoryViewerDialog(self.repo, file_name, self)
+            dialog.exec()
+        except Exception as e:
+            logger.error(f"Error opening history viewer: {e}")
+            PyQt6.QtWidgets.QMessageBox.critical(
+                self,
+                "Fehler",
+                f"Versionshistorie konnte nicht geöffnet werden:\n{e}"
+            )
 
     def on_show_special_page(self) -> None:
         """Show special maintenance page with orphaned and wanted pages."""

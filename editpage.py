@@ -5,6 +5,7 @@ import logging
 import notehelper
 import commitbrowser
 import docbrowser
+import historyviewer
 import os
 import pathlib
 import shutil
@@ -107,6 +108,12 @@ class EditPage(PyQt6.QtWidgets.QWidget):
         open_git_btn = PyQt6.QtWidgets.QPushButton("Commits")
         format_layout.addWidget(open_git_btn, 0, 1)
         open_git_btn.clicked.connect(self.on_open_git)
+        
+        # History button
+        history_btn = PyQt6.QtWidgets.QPushButton("📜")
+        history_btn.setToolTip("<b>Versionshistorie dieser Datei anzeigen</b>")
+        format_layout.addWidget(history_btn, 0, 2)
+        history_btn.clicked.connect(self.on_show_history)
 
         # Save button
         save_btn = PyQt6.QtWidgets.QPushButton("Speichern")
@@ -181,6 +188,16 @@ class EditPage(PyQt6.QtWidgets.QWidget):
         """Open git commit browser."""
         logger.info("Open git clicked")
         self.show_commits_requested.emit()
+
+    def on_show_history(self) -> None:
+        """Open file history viewer."""
+        logger.info("Show history clicked")
+        if self.file_name:
+            self.show_history_requested.emit(self.file_name)
+        else:
+            PyQt6.QtWidgets.QMessageBox.warning(
+                self, "Fehler", "Keine Datei geladen"
+            )
 
     def on_upload(self) -> None:
         """Upload a file to the project directory."""

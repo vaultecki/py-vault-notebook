@@ -106,6 +106,9 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
         self.web_page.nav_link_clicked_internal_signal.connect(self.on_internal_url)
         self.web_page.nav_link_clicked_external_signal.connect(self.on_external_url)
         self.web_engine_view.setPage(self.web_page)
+        
+        # Connect to URL change events to track current file
+        self.web_page.urlChanged.connect(self.on_url_changed)
 
         # Initialize UI
         self.init_ui()
@@ -865,6 +868,43 @@ class Notebook(PyQt6.QtWidgets.QMainWindow):
         self.web_page.triggerAction(
             PyQt6.QtWebEngineCore.QWebEnginePage.WebAction.Back
         )
+
+    def on_url_changed(self, url: PyQt6.QtCore.QUrl) -> None:
+        """
+        Handle URL change events to keep track of current file.
+        
+        Args:
+            url: New URL
+        """
+        if not url.isLocalFile():
+            return
+        
+        project_name = self.project_drop_down.currentText()
+        project_path = self.data.get("projects", {}).get(project_name, {}).get("path", "")
+        
+        if not project_path:
+            return
+        
+        try:
+            url_path = pathlib.Path(url.toLocalFile()).resolve()
+            project_path_resolved = pathlib.Path(project_path).resolve()
+            
+            # Check if file is within project
+            try:
+                relative_path = url_path.relative_to(project_path_resolved)
+                file_name = str(relative_path)
+                
+                # Only update if it's an editable file
+                if file_name.endswith(('.adoc', '.asciidoc')):
+                    self.current_file_name = file_name
+                    logger.debug(f"Current file updated to: {file_name}")
+                    
+            except ValueError:
+                # File outside project, don't update current_file_name
+                pass
+                
+        except Exception as e:
+            logger.debug(f"Could not update current file from URL: {e}")
 
     def on_export_pdf(self) -> None:
         """Export current page to PDF."""
